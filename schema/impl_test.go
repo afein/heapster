@@ -260,15 +260,15 @@ func TestParseMetricNormal(t *testing.T) {
 		metric := pointSlice[0]
 		assert.Equal(metric.Timestamp, rounded_stamp)
 		switch key {
-		case "cpu/limit":
+		case cpuLimit:
 			assert.Equal(metric.Value, normal_cme.Spec.Cpu.Limit)
-		case "memory/limit":
+		case memLimit:
 			assert.Equal(metric.Value, normal_cme.Spec.Memory.Limit)
-		case "cpu/usage":
+		case cpuUsage:
 			assert.Equal(metric.Value, normal_cme.Stats.Cpu.Usage.Total)
-		case "memory/usage":
+		case memUsage:
 			assert.Equal(metric.Value, normal_cme.Stats.Memory.Usage)
-		case "memory/working":
+		case memWorking:
 			assert.Equal(metric.Value, normal_cme.Stats.Memory.WorkingSet)
 		default:
 			// Filesystem or error
@@ -509,6 +509,54 @@ func TestUpdate(t *testing.T) {
 	// Invocation with empty cache - expect no change in cluster
 	assert.NoError(cluster.Update(empty_cache))
 	verifyCacheFactoryCluster(&cluster.ClusterInfo, t)
+}
+
+// TestGetClusterMetric tests all flows of GetClusterMetric.
+func TestGetClusterMetric(t *testing.T) {
+	var (
+		cluster      = newRealCluster(newTimeStore, time.Minute)
+		source_cache = cacheFactory()
+		assert       = assert.New(t)
+	)
+	// Invocation with no cluster metrics
+	res, stamp, err := cluster.GetClusterMetric(cpuUsage, time.Time{})
+	assert.Error(err)
+	assert.Equal(stamp, time.Time{})
+	assert.Nil(res)
+
+	// Populate cluster
+	assert.NoError(cluster.Update(source_cache))
+
+	// Invocation with non-existant metric
+	res, stamp, err = cluster.GetClusterMetric("doesnotexist", time.Time{})
+	assert.Error(err)
+	assert.Equal(stamp, time.Time{})
+	assert.Nil(res)
+
+	// Normal Invocation - cpuUsage
+	res, stamp, err = cluster.GetClusterMetric(cpuUsage, time.Time{})
+	assert.NoError(err)
+	assert.NotEqual(stamp, time.Time{})
+	assert.NotNil(res)
+}
+
+// TestGetAvailableMetrics tests the flow of GetAvailableMetrics
+func TestGetAvailableMetrics(t *testing.T) {
+	var (
+		cluster      = newRealCluster(newTimeStore, time.Minute)
+		source_cache = cacheFactory()
+		assert       = assert.New(t)
+	)
+	// Invocation with no cluster metrics
+	res := cluster.GetAvailableMetrics()
+	assert.Len(res, 0)
+
+	// Populate cluster
+	assert.NoError(cluster.Update(source_cache))
+
+	// Invocation with normal parameters
+	res = cluster.GetAvailableMetrics()
+	assert.Len(res, 7)
 }
 
 // verifyCacheFactoryCluster performs assertions over a ClusterInfo structure,

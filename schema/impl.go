@@ -16,6 +16,7 @@ package schema
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/golang/glog"
@@ -44,6 +45,37 @@ func newRealCluster(tsConstructor func() store.TimeStore, resolution time.Durati
 		resolution:    resolution,
 	}
 	return cluster
+}
+
+// GetClusterMetrics returns a summed cluster metric, along with the latest timestamp.
+// GetClusterMetrics receives as arguments the name of a metric and a starting timestamp.
+func (rc *realCluster) GetClusterMetric(metric_name string, start time.Time) ([]store.TimePoint, time.Time, error) {
+	rc.lock.RLock()
+	defer rc.lock.RUnlock()
+
+	if len(rc.Metrics) == 0 {
+		return nil, time.Time{}, fmt.Errorf("cluster metrics are not populated yet")
+	}
+
+	ts, ok := rc.Metrics[metric_name]
+	if !ok {
+		return nil, time.Time{}, fmt.Errorf("the requested metric is not present")
+	}
+	res := (*ts).Get(start, time.Time{})
+	return res, rc.timestamp, nil
+}
+
+// GetAvailableMetrics returns the names of all metrics that are available on the cluster.
+// Due to metric propagation, all entities of the cluster have the same metrics.
+func (rc *realCluster) GetAvailableMetrics() []string {
+	rc.lock.RLock()
+	defer rc.lock.RUnlock()
+
+	res := make([]string, 0)
+	for key, _ := range rc.Metrics {
+		res = append(res, key)
+	}
+	return res
 }
 
 // updateTime updates the Cluster timestamp to the specified time.
@@ -252,14 +284,16 @@ func (rc *realCluster) parseMetric(cme *cache.ContainerMetricElement, dict map[s
 
 			// Add FS Limit Metric
 			fs_limit := fsstat.Limit
-			err := rc.addMetricToMap(fsLimit+dev, timestamp, fs_limit, dict)
+			metric_name := fsLimit + strings.Replace(dev, "/", "-", -1)
+			err := rc.addMetricToMap(metric_name, timestamp, fs_limit, dict)
 			if err != nil {
 				return zeroTime, fmt.Errorf("failed to add %s metric: %s", fsLimit, err)
 			}
 
 			// Add FS Usage Metric
 			fs_usage := fsstat.Usage
-			err = rc.addMetricToMap(fsUsage+dev, timestamp, fs_usage, dict)
+			metric_name = fsUsage + strings.Replace(dev, "/", "-", -1)
+			err = rc.addMetricToMap(metric_name, timestamp, fs_usage, dict)
 			if err != nil {
 				return zeroTime, fmt.Errorf("failed to add %s metric: %s", fsUsage, err)
 			}

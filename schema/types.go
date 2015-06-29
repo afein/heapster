@@ -28,7 +28,8 @@ type Cluster interface {
 
 	// The Get operations extract internal types from the Cluster.
 	// The returned time.Time values signify the latest metric timestamp in the cluster.
-	// TODO(alex): Get Operations are being reconstructed for [Schema 7]
+	GetAvailableMetrics() []string
+	GetClusterMetric(string, time.Time) ([]store.TimePoint, time.Time, error)
 }
 
 // realCluster is an implementation of the Cluster interface.
@@ -78,10 +79,10 @@ type ContainerInfo struct {
 }
 
 // Supported metric names, used as keys for all map[string]*store.TimeStore
-const cpuLimit = "cpu/limit"
-const cpuUsage = "cpu/usage"
-const memLimit = "memory/limit"
-const memUsage = "memory/usage"
-const memWorking = "memory/working"
-const fsLimit = "fs/limit"
-const fsUsage = "fs/usage"
+const cpuLimit = "cpu-limit"
+const cpuUsage = "cpu-usage"
+const memLimit = "memory-limit"
+const memUsage = "memory-usage"
+const memWorking = "memory-working"
+const fsLimit = "fs-limit"
+const fsUsage = "fs-usage"

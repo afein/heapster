@@ -18,46 +18,12 @@ import (
 	"time"
 )
 
-type InfoType struct {
-	// Generic object that contains metrics and labels
-	// Embedded in relevant Info Objects
-	Metrics map[string][]*MetricTimeseries `json:"metrics,omitempty"` // key: Metric name
-	Labels  map[string]string              `json:"labels,omitempty"`  // key: Label
-}
-
-type ClusterInfo struct {
-	// Cluster Information, links to Namespaces and Nodes
-	InfoType
-	Namespaces map[string]*NamespaceInfo `json:"namespaces,omitempty"` // key: Namespace Name
-	Nodes      map[string]*NodeInfo      `json:"nodes,omitempty"`      // key: Hostname
-}
-
-type NamespaceInfo struct {
-	// Namespace Information, links to Pods
-	InfoType
-	Pods map[string]*PodInfo `json:"pods,omitempty"` // key: Pod Name
-}
-
-type NodeInfo struct {
-	// Node Information, links to Pods and Free Containers
-	InfoType
-	Pods           map[string]*PodInfo       `json:"pods,omitempty"`            // key: Pod Name
-	FreeContainers map[string]*ContainerInfo `json:"free_containers,omitempty"` // key: Container Name
-}
-
-type PodInfo struct {
-	// Pod Information, links to Containers
-	InfoType
-	UID        string                    `json:"uid,omitempty"`
-	Containers map[string]*ContainerInfo `json:"containers,omitempty"` // key: Container Name
-}
-
-type ContainerInfo struct {
-	// Container Information
-	InfoType
-}
-
-type MetricTimeseries struct {
+type MetricPoint struct {
 	Timestamp time.Time `json:"timestamp"`
 	Value     uint64    `json:"value"`
+}
+
+type MetricResult struct {
+	Metrics         []MetricPoint `json:"metrics"`
+	LatestTimestamp time.Time     `json:"latestTimestamp"`
 }

@@ -19,11 +19,14 @@ import (
 	"sync"
 	"time"
 
+	"github.com/golang/glog"
+
+	"github.com/GoogleCloudPlatform/heapster/schema"
 	"github.com/GoogleCloudPlatform/heapster/sinks"
 	sink_api "github.com/GoogleCloudPlatform/heapster/sinks/api/v1"
 	"github.com/GoogleCloudPlatform/heapster/sinks/cache"
 	source_api "github.com/GoogleCloudPlatform/heapster/sources/api"
-	"github.com/golang/glog"
+	"github.com/GoogleCloudPlatform/heapster/store"
 )
 
 // Manager provides an interface to control the core of heapster.
@@ -35,11 +38,15 @@ type Manager interface {
 
 	// Export the latest data point of all metrics.
 	ExportMetrics() ([]*sink_api.Point, error)
+
+	// Get a reference to the Cluster object
+	GetCluster() schema.Cluster
 }
 
 type realManager struct {
 	sources     []source_api.Source
 	cache       cache.Cache
+	cluster     schema.Cluster
 	sinkManager sinks.ExternalSinkManager
 	lastSync    time.Time
 	resolution  time.Duration
@@ -52,14 +59,23 @@ type syncData struct {
 }
 
 func NewManager(sources []source_api.Source, sinkManager sinks.ExternalSinkManager, res, bufferDuration time.Duration) (Manager, error) {
+	// TimeStore constructor passed to the cluster implementation
+	tsConstructor := func() store.TimeStore {
+		return store.NewGCStore(store.NewCMAStore(), 10*bufferDuration)
+	}
 	return &realManager{
 		sources:     sources,
 		sinkManager: sinkManager,
 		cache:       cache.NewCache(bufferDuration),
+		cluster:     schema.NewCluster(tsConstructor, time.Minute),
 		lastSync:    time.Now(),
 		resolution:  res,
 		decoder:     sink_api.NewDecoder(),
 	}, nil
+}
+
+func (rm *realManager) GetCluster() schema.Cluster {
+	return rm.cluster
 }
 
 func (rm *realManager) scrapeSource(s source_api.Source, start, end time.Time, sd *syncData, errChan chan<- error) {
@@ -105,6 +121,10 @@ func (rm *realManager) Housekeep() {
 	if err := rm.sinkManager.Store(sd.data); err != nil {
 		errors = append(errors, err.Error())
 	}
+	if err := rm.cluster.Update(rm.cache); err != nil {
+		errors = append(errors, err.Error())
+	}
+
 	if len(errors) > 0 {
 		glog.V(1).Infof("housekeeping resulted in following errors: %v", errors)
 	}
