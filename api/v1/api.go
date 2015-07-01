@@ -16,7 +16,6 @@ package v1
 
 import (
 	"net/http"
-	"time"
 
 	"github.com/GoogleCloudPlatform/heapster/manager"
 	sinksApi "github.com/GoogleCloudPlatform/heapster/sinks/api/v1"

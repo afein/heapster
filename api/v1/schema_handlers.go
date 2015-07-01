@@ -1,6 +1,9 @@
 package v1
 
 import (
+	"net/http"
+	"time"
+
 	restful "github.com/emicklei/go-restful"
 	"github.com/golang/glog"
 )
@@ -20,13 +23,13 @@ func (a *Api) RegisterCluster(container *restful.Container) {
 		Doc("Show which metrics are available").
 		Operation("clusterMetrics"))
 
-	ws.Route(ws.GET("/cluster/{metric-name}/{start}").
+	ws.Route(ws.GET("/cluster/{metric-name}").
 		To(a.clusterMetrics).
 		Filter(compressionFilter).
 		Doc("export all aggregated cluster-level metrics").
 		Operation("clusterMetrics").
 		Param(ws.PathParameter("metric-name", "The name of the requested metric").DataType("string")).
-		Param(ws.PathParameter("start", "Start time for requested metrics").DataType("string")).
+		Param(ws.QueryParameter("start", "Start time for requested metrics").DataType("string")).
 		Writes(MetricResult{}))
 	container.Add(ws)
 }
@@ -47,11 +50,10 @@ func (a *Api) clusterMetrics(request *restful.Request, response *restful.Respons
 	metric_name := request.PathParameter("metric-name")
 
 	// Get start time, parse as time.Time
-	query_param := request.PathParameter("start")
+	query_param := request.QueryParameter("start")
 	req_stamp := time.Time{}
 	if query_param != "" {
-		time_format := "2013-02-29T22:06:00Z"
-		req_stamp, err = time.Parse(time_format, query_param)
+		req_stamp, err = time.Parse(time.RFC3339, query_param)
 		if err != nil {
 			// Timestamp parameter cannot be parsed
 			response.WriteError(http.StatusInternalServerError, err)
