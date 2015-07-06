@@ -60,8 +60,8 @@ func (a *Api) Register(container *restful.Container) {
 		Writes(TimeseriesSchema{}))
 	container.Add(ws)
 
-	// Register the schema endpoints
-	a.RegisterCluster(container)
+	// Register the model endpoints
+	a.RegisterModel(container)
 }
 
 func compressionFilter(req *restful.Request, resp *restful.Response, chain *restful.FilterChain) {

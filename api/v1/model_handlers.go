@@ -22,11 +22,11 @@ import (
 	"github.com/golang/glog"
 )
 
-// Register the Cluster API endpoints
-func (a *Api) RegisterCluster(container *restful.Container) {
+// Register the Model API endpoints
+func (a *Api) RegisterModel(container *restful.Container) {
 	ws := new(restful.WebService)
 	ws.
-		Path("/api/v1/schema").
+		Path("/api/v1/model").
 		Doc("Exports all aggregated Cluster-level metrics since the specified start time").
 		Consumes("*/*").
 		Produces(restful.MIME_JSON)
@@ -49,14 +49,14 @@ func (a *Api) RegisterCluster(container *restful.Container) {
 }
 
 // availableMetrics returns a list of available metric names.
-// These metric names can be used to extract metrics from the various resources
+// These metric names can be used to extract metrics from the various model resources.
 func (a *Api) availableMetrics(request *restful.Request, response *restful.Response) {
 	cluster := a.manager.GetCluster()
 	result := cluster.GetAvailableMetrics()
 	response.WriteEntity(result)
 }
 
-// clusterMetrics returns a metric timeseries for the cluster resource
+// clusterMetrics returns a metric timeseries for the cluster resource.
 func (a *Api) clusterMetrics(request *restful.Request, response *restful.Response) {
 	var err error
 	cluster := a.manager.GetCluster()

@@ -39,6 +39,7 @@ var (
 	argIp              = flag.String("listen_ip", "", "IP to listen on, defaults to all IPs")
 	argMaxProcs        = flag.Int("max_procs", 0, "max number of CPUs that can be used simultaneously. Less than 1 for default (number of cores).")
 	argCacheDuration   = flag.Duration("cache_duration", 10*time.Minute, "The total duration of the historical data that will be cached by heapster.")
+	argModelResolution = flag.Duration("ModelResolution", time.Duration{}, "The resolution of the timeseries stored in the model.")
 	argSources         Uris
 	argSinks           Uris
 )
@@ -75,6 +76,9 @@ func validateFlags() error {
 	}
 	if *argStatsResolution >= *argPollDuration {
 		return fmt.Errorf("stats resolution '%d' is not less than poll duration '%d'", *argStatsResolution, *argPollDuration)
+	}
+	if *argStatsResolution >= *argModelResolution {
+		return fmt.Errorf("stats resolution '%d' is not less than model resolution '%d'", *argStatsResolution, *ArgModelResolution)
 	}
 
 	return nil

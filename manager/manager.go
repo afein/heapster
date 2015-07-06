@@ -21,7 +21,7 @@ import (
 
 	"github.com/golang/glog"
 
-	"github.com/GoogleCloudPlatform/heapster/schema"
+	"github.com/GoogleCloudPlatform/heapster/model"
 	"github.com/GoogleCloudPlatform/heapster/sinks"
 	sink_api "github.com/GoogleCloudPlatform/heapster/sinks/api/v1"
 	"github.com/GoogleCloudPlatform/heapster/sinks/cache"
@@ -40,13 +40,13 @@ type Manager interface {
 	ExportMetrics() ([]*sink_api.Point, error)
 
 	// Get a reference to the Cluster object
-	GetCluster() schema.Cluster
+	GetCluster() model.Cluster
 }
 
 type realManager struct {
 	sources     []source_api.Source
 	cache       cache.Cache
-	cluster     schema.Cluster
+	cluster     model.Cluster
 	sinkManager sinks.ExternalSinkManager
 	lastSync    time.Time
 	resolution  time.Duration
@@ -58,23 +58,24 @@ type syncData struct {
 	mutex sync.Mutex
 }
 
-func NewManager(sources []source_api.Source, sinkManager sinks.ExternalSinkManager, res, bufferDuration time.Duration) (Manager, error) {
-	// TimeStore constructor passed to the cluster implementation
+func NewManager(sources []source_api.Source, sinkManager sinks.ExternalSinkManager, res, bufferDuration time.Duration, modelRes time.Duration) (Manager, error) {
+	// TimeStore constructor passed to the cluster implementation.
+	// TODO(alex): determine default analogy of cache duration to Timestore durations.
 	tsConstructor := func() store.TimeStore {
-		return store.NewGCStore(store.NewCMAStore(), 10*bufferDuration)
+		return store.NewGCStore(store.NewCMAStore(), 5*bufferDuration)
 	}
 	return &realManager{
 		sources:     sources,
 		sinkManager: sinkManager,
 		cache:       cache.NewCache(bufferDuration),
-		cluster:     schema.NewCluster(tsConstructor, time.Minute),
+		cluster:     model.NewCluster(tsConstructor, modelRes),
 		lastSync:    time.Now(),
 		resolution:  res,
 		decoder:     sink_api.NewDecoder(),
 	}, nil
 }
 
-func (rm *realManager) GetCluster() schema.Cluster {
+func (rm *realManager) GetCluster() model.Cluster {
 	return rm.cluster
 }
 
