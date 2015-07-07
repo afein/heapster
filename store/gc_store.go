@@ -42,6 +42,10 @@ func (gcs *gcStore) Delete(start, end time.Time) error {
 	return gcs.store.Delete(start, end)
 }
 
+func (gcs *gcStore) Last() *TimePoint {
+	return gcs.store.Last()
+}
+
 func (gcs *gcStore) reapOldData(timestamp time.Time) {
 	end := timestamp.Add(-gcs.bufferDuration)
 	if end.Before(time.Time{}) {

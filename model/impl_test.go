@@ -265,6 +265,8 @@ func TestParseMetricNormal(t *testing.T) {
 		case memLimit:
 			assert.Equal(metric.Value, normal_cme.Spec.Memory.Limit)
 		case cpuUsage:
+			assert.True(metric.Value.(uint64) < normal_cme.Spec.Cpu.Limit)
+		case cpuUsageCumulative:
 			assert.Equal(metric.Value, normal_cme.Stats.Cpu.Usage.Total)
 		case memUsage:
 			assert.Equal(metric.Value, normal_cme.Stats.Memory.Usage)
@@ -342,10 +344,14 @@ func TestUpdateInfoTypeNormal(t *testing.T) {
 	assert.NoError(err)
 	assert.Empty(new_infotype.Labels)
 	assert.NotEqual(stamp, time.Time{})
-	assert.Len(new_infotype.Metrics, 7) // 7 stats in total
-	for _, metricStore := range new_infotype.Metrics {
+	assert.Len(new_infotype.Metrics, 8) // 8 stats in total
+	for key, metricStore := range new_infotype.Metrics {
 		metricSlice := (*metricStore).Get(zeroTime, zeroTime)
-		assert.Len(metricSlice, 2) // 2 Metrics per stat
+		if key == cpuUsage {
+			assert.Len(metricSlice, 1) // cpuUsage consists of n-1 values.
+		} else {
+			assert.Len(metricSlice, 2) // 2 Metrics per stat
+		}
 	}
 
 	// Invocation with an existing infotype as argument
@@ -355,10 +361,14 @@ func TestUpdateInfoTypeNormal(t *testing.T) {
 	assert.NoError(err)
 	assert.Empty(new_infotype.Labels)
 	assert.NotEqual(stamp, time.Time{})
-	assert.Len(new_infotype.Metrics, 7) // 7 stats total
-	for _, metricStore := range new_infotype.Metrics {
+	assert.Len(new_infotype.Metrics, 8) // 7 stats total
+	for key, metricStore := range new_infotype.Metrics {
 		metricSlice := (*metricStore).Get(zeroTime, zeroTime)
-		assert.Len(metricSlice, 4) // 4 Metrics per stat
+		if key == cpuUsage {
+			assert.Len(metricSlice, 3) // cpuUsage consists of n-1 values.
+		} else {
+			assert.Len(metricSlice, 4) // 4 Metrics per stat
+		}
 	}
 }
 
@@ -533,8 +543,8 @@ func TestGetClusterMetric(t *testing.T) {
 	assert.Equal(stamp, time.Time{})
 	assert.Nil(res)
 
-	// Normal Invocation - cpuUsage
-	res, stamp, err = cluster.GetClusterMetric(cpuUsage, time.Time{})
+	// Normal Invocation - cpuUsageCumulative
+	res, stamp, err = cluster.GetClusterMetric(cpuUsageCumulative, time.Time{})
 	assert.NoError(err)
 	assert.NotEqual(stamp, time.Time{})
 	assert.NotNil(res)

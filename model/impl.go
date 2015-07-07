@@ -237,43 +237,67 @@ func (rc *realCluster) parseMetric(cme *cache.ContainerMetricElement, dict map[s
 	}
 
 	// Round the timestamp to the nearest resolution
-	timestamp := cme.Stats.Timestamp.Round(rc.resolution)
+	timestamp := cme.Stats.Timestamp
+	roundedStamp := timestamp.Round(rc.resolution)
 
 	// TODO(alex): refactor to avoid repetition
 	if cme.Spec.HasCpu {
 		// Add CPU Limit metric
 		cpu_limit := cme.Spec.Cpu.Limit
-		err := rc.addMetricToMap(cpuLimit, timestamp, cpu_limit, dict)
+		err := rc.addMetricToMap(cpuLimit, roundedStamp, cpu_limit, dict)
 		if err != nil {
 			return zeroTime, fmt.Errorf("failed to add %s metric: %s", cpuLimit, err)
 		}
 
 		// Add CPU Usage metric
 		cpu_usage := cme.Stats.Cpu.Usage.Total
-		err = rc.addMetricToMap(cpuUsage, timestamp, cpu_usage, dict)
+
+		// Use the cpuUsageCumulative metric to calculate deltas for the actual usage
+		tsPtr, ok := dict[cpuUsageCumulative]
+		if ok {
+			// cpuUsageCumulative exists, get latest entry
+			ts := (*tsPtr)
+			lastTP := ts.Last()
+
+			// Create a new cpuUsage value based on deltas to the latest entry.
+			tdelta := uint64((timestamp.Sub(lastTP.Timestamp)).Nanoseconds())
+			if tdelta > 0 {
+				vdelta := uint64(cpu_usage - lastTP.Value.(uint64))
+				newUsage := vdelta / tdelta
+
+				// Add the new value to the cpuUsage metric
+				err = rc.addMetricToMap(cpuUsage, roundedStamp, newUsage, dict)
+				if err != nil {
+					return zeroTime, fmt.Errorf("failed to add %s metric: %s", cpuUsage, err)
+				}
+			}
+		}
+
+		// Add the actual Usage and Timestamp to the cpuUsageCumulative metric
+		err = rc.addMetricToMap(cpuUsageCumulative, timestamp, cpu_usage, dict)
 		if err != nil {
-			return zeroTime, fmt.Errorf("failed to add %s metric: %s", cpuUsage, err)
+			return zeroTime, fmt.Errorf("failed to add %s metric: %s", cpuUsageCumulative, err)
 		}
 	}
 
 	if cme.Spec.HasMemory {
 		// Add Memory Limit metric
 		mem_limit := cme.Spec.Memory.Limit
-		err := rc.addMetricToMap(memLimit, timestamp, mem_limit, dict)
+		err := rc.addMetricToMap(memLimit, roundedStamp, mem_limit, dict)
 		if err != nil {
 			return zeroTime, fmt.Errorf("failed to add %s metric: %s", memLimit, err)
 		}
 
 		// Add Memory Usage metric
 		mem_usage := cme.Stats.Memory.Usage
-		err = rc.addMetricToMap(memUsage, timestamp, mem_usage, dict)
+		err = rc.addMetricToMap(memUsage, roundedStamp, mem_usage, dict)
 		if err != nil {
 			return zeroTime, fmt.Errorf("failed to add %s metric: %s", memUsage, err)
 		}
 
 		// Add Memory Working Set metric
 		mem_working := cme.Stats.Memory.WorkingSet
-		err = rc.addMetricToMap(memWorking, timestamp, mem_working, dict)
+		err = rc.addMetricToMap(memWorking, roundedStamp, mem_working, dict)
 		if err != nil {
 			return zeroTime, fmt.Errorf("failed to add %s metric: %s", memWorking, err)
 		}
@@ -285,7 +309,7 @@ func (rc *realCluster) parseMetric(cme *cache.ContainerMetricElement, dict map[s
 			// Add FS Limit Metric
 			fs_limit := fsstat.Limit
 			metric_name := fsLimit + strings.Replace(dev, "/", "-", -1)
-			err := rc.addMetricToMap(metric_name, timestamp, fs_limit, dict)
+			err := rc.addMetricToMap(metric_name, roundedStamp, fs_limit, dict)
 			if err != nil {
 				return zeroTime, fmt.Errorf("failed to add %s metric: %s", fsLimit, err)
 			}
@@ -293,13 +317,13 @@ func (rc *realCluster) parseMetric(cme *cache.ContainerMetricElement, dict map[s
 			// Add FS Usage Metric
 			fs_usage := fsstat.Usage
 			metric_name = fsUsage + strings.Replace(dev, "/", "-", -1)
-			err = rc.addMetricToMap(metric_name, timestamp, fs_usage, dict)
+			err = rc.addMetricToMap(metric_name, roundedStamp, fs_usage, dict)
 			if err != nil {
 				return zeroTime, fmt.Errorf("failed to add %s metric: %s", fsUsage, err)
 			}
 		}
 	}
-	return timestamp, nil
+	return roundedStamp, nil
 }
 
 // Update populates the data structure from a cache.

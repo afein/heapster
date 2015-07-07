@@ -36,6 +36,7 @@ var (
 	argPollDuration    = flag.Duration("poll_duration", 10*time.Second, "The frequency at which heapster will poll for stats")
 	argStatsResolution = flag.Duration("stats_resolution", 5*time.Second, "The resolution at which heapster will retain stats. Acceptable values are in the range [1 second, 'poll_duration')")
 	argCacheDuration   = flag.Duration("cache_duration", 10*time.Minute, "The total duration of the historical data that will be cached by heapster.")
+	argUseModel        = flag.Bool("use_model", true, "When true, the internal model representation will be used.")
 	argModelResolution = flag.Duration("model_resolution", 20*time.Second, "The resolution of the timeseries stored in the model.")
 	argPort            = flag.Int("port", 8082, "port to listen to")
 	argIp              = flag.String("listen_ip", "", "IP to listen on, defaults to all IPs")
@@ -97,7 +98,7 @@ func doWork() ([]api.Source, sinks.ExternalSinkManager, manager.Manager, error) 
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	manager, err := manager.NewManager(sources, sinkManager, *argStatsResolution, *argCacheDuration, *argModelResolution)
+	manager, err := manager.NewManager(sources, sinkManager, *argStatsResolution, *argCacheDuration, *argUseModel, *argModelResolution)
 	if err != nil {
 		return nil, nil, nil, err
 	}

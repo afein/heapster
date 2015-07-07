@@ -39,14 +39,14 @@ type Manager interface {
 	// Export the latest data point of all metrics.
 	ExportMetrics() ([]*sink_api.Point, error)
 
-	// Get a reference to the Cluster object
+	// Get a reference to the model's Cluster object, if it exists.
 	GetCluster() model.Cluster
 }
 
 type realManager struct {
 	sources     []source_api.Source
 	cache       cache.Cache
-	cluster     model.Cluster
+	model       model.Cluster
 	sinkManager sinks.ExternalSinkManager
 	lastSync    time.Time
 	resolution  time.Duration
@@ -58,17 +58,21 @@ type syncData struct {
 	mutex sync.Mutex
 }
 
-func NewManager(sources []source_api.Source, sinkManager sinks.ExternalSinkManager, res, bufferDuration time.Duration, modelRes time.Duration) (Manager, error) {
+func NewManager(sources []source_api.Source, sinkManager sinks.ExternalSinkManager, res, bufferDuration time.Duration, useModel bool, modelRes time.Duration) (Manager, error) {
 	// TimeStore constructor passed to the cluster implementation.
 	// TODO(alex): determine default analogy of cache duration to Timestore durations.
 	tsConstructor := func() store.TimeStore {
 		return store.NewGCStore(store.NewCMAStore(), 5*bufferDuration)
 	}
+	var newCluster model.Cluster = nil
+	if useModel {
+		newCluster = model.NewCluster(tsConstructor, modelRes)
+	}
 	return &realManager{
 		sources:     sources,
 		sinkManager: sinkManager,
 		cache:       cache.NewCache(bufferDuration),
-		cluster:     model.NewCluster(tsConstructor, modelRes),
+		model:       newCluster,
 		lastSync:    time.Now(),
 		resolution:  res,
 		decoder:     sink_api.NewDecoder(),
@@ -76,7 +80,7 @@ func NewManager(sources []source_api.Source, sinkManager sinks.ExternalSinkManag
 }
 
 func (rm *realManager) GetCluster() model.Cluster {
-	return rm.cluster
+	return rm.model
 }
 
 func (rm *realManager) scrapeSource(s source_api.Source, start, end time.Time, sd *syncData, errChan chan<- error) {
@@ -122,8 +126,11 @@ func (rm *realManager) Housekeep() {
 	if err := rm.sinkManager.Store(sd.data); err != nil {
 		errors = append(errors, err.Error())
 	}
-	if err := rm.cluster.Update(rm.cache); err != nil {
-		errors = append(errors, err.Error())
+
+	if rm.model != nil {
+		if err := rm.model.Update(rm.cache); err != nil {
+			errors = append(errors, err.Error())
+		}
 	}
 
 	if len(errors) > 0 {

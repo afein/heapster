@@ -129,6 +129,16 @@ func (ts *timeStore) Delete(start, end time.Time) error {
 	return nil
 }
 
+func (ts *timeStore) Last() *TimePoint {
+	ts.rwLock.Lock()
+	defer ts.rwLock.Unlock()
+	if ts.buffer.Len() == 0 {
+		return nil
+	}
+	tp := ts.buffer.Back().Value.(tpContainer).TimePoint
+	return &tp
+}
+
 func NewTimeStore() TimeStore {
 	return &timeStore{
 		rwLock: sync.RWMutex{},

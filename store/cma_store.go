@@ -133,6 +133,16 @@ func (ts *cmaStore) Delete(start, end time.Time) error {
 	return nil
 }
 
+func (ts *cmaStore) Last() *TimePoint {
+	ts.rwLock.Lock()
+	defer ts.rwLock.Unlock()
+	if ts.buffer.Len() == 0 {
+		return nil
+	}
+	tp := ts.buffer.Back().Value.(tpContainer).TimePoint
+	return &tp
+}
+
 func NewCMAStore() TimeStore {
 	return &cmaStore{
 		buffer: list.New(),

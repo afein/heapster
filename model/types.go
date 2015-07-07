@@ -80,6 +80,7 @@ type ContainerInfo struct {
 
 // Supported metric names, used as keys for all map[string]*store.TimeStore
 const cpuLimit = "cpu-limit"
+const cpuUsageCumulative = "cpu-usage-cumulative"
 const cpuUsage = "cpu-usage"
 const memLimit = "memory-limit"
 const memUsage = "memory-usage"
