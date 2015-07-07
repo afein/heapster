@@ -35,11 +35,11 @@ import (
 var (
 	argPollDuration    = flag.Duration("poll_duration", 10*time.Second, "The frequency at which heapster will poll for stats")
 	argStatsResolution = flag.Duration("stats_resolution", 5*time.Second, "The resolution at which heapster will retain stats. Acceptable values are in the range [1 second, 'poll_duration')")
+	argCacheDuration   = flag.Duration("cache_duration", 10*time.Minute, "The total duration of the historical data that will be cached by heapster.")
+	argModelResolution = flag.Duration("model_resolution", 20*time.Second, "The resolution of the timeseries stored in the model.")
 	argPort            = flag.Int("port", 8082, "port to listen to")
 	argIp              = flag.String("listen_ip", "", "IP to listen on, defaults to all IPs")
 	argMaxProcs        = flag.Int("max_procs", 0, "max number of CPUs that can be used simultaneously. Less than 1 for default (number of cores).")
-	argCacheDuration   = flag.Duration("cache_duration", 10*time.Minute, "The total duration of the historical data that will be cached by heapster.")
-	argModelResolution = flag.Duration("ModelResolution", time.Duration{}, "The resolution of the timeseries stored in the model.")
 	argSources         Uris
 	argSinks           Uris
 )
@@ -78,7 +78,7 @@ func validateFlags() error {
 		return fmt.Errorf("stats resolution '%d' is not less than poll duration '%d'", *argStatsResolution, *argPollDuration)
 	}
 	if *argStatsResolution >= *argModelResolution {
-		return fmt.Errorf("stats resolution '%d' is not less than model resolution '%d'", *argStatsResolution, *ArgModelResolution)
+		return fmt.Errorf("stats resolution '%d' is not less than model resolution '%d'", *argStatsResolution, *argModelResolution)
 	}
 
 	return nil
@@ -97,7 +97,7 @@ func doWork() ([]api.Source, sinks.ExternalSinkManager, manager.Manager, error) 
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	manager, err := manager.NewManager(sources, sinkManager, *argStatsResolution, *argCacheDuration)
+	manager, err := manager.NewManager(sources, sinkManager, *argStatsResolution, *argCacheDuration, *argModelResolution)
 	if err != nil {
 		return nil, nil, nil, err
 	}
