@@ -94,10 +94,11 @@ func (ts *cmaStore) Get(start, end time.Time) []TimePoint {
 		tpc := elem.Value.(tpContainer)
 		entry := tpc.TimePoint
 		// Skip entries until the first one after start
-		if (start != zeroTime) && entry.Timestamp.Before(start) {
+		// skips entries with Timestamp == start
+		if (start != zeroTime) && !entry.Timestamp.After(start) {
 			continue
 		}
-		// Add all entries whose timestamp is not after end.
+		// Add all entries whose timestamp is before or equal to end.
 		if (end == time.Time{}) || !entry.Timestamp.After(end) {
 			result = append(result, entry)
 		}
@@ -139,7 +140,7 @@ func (ts *cmaStore) Last() *TimePoint {
 	if ts.buffer.Len() == 0 {
 		return nil
 	}
-	tp := ts.buffer.Back().Value.(tpContainer).TimePoint
+	tp := ts.buffer.Front().Value.(tpContainer).TimePoint
 	return &tp
 }
 

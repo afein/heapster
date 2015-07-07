@@ -255,12 +255,13 @@ func (rc *realCluster) parseMetric(cme *cache.ContainerMetricElement, dict map[s
 		// Use the cpuUsageCumulative metric to calculate deltas for the actual usage
 		tsPtr, ok := dict[cpuUsageCumulative]
 		if ok {
-			// cpuUsageCumulative exists, get latest entry
+			// cpuUsageCumulative exists, get the latest entry.
 			ts := (*tsPtr)
 			lastTP := ts.Last()
 
 			// Create a new cpuUsage value based on deltas to the latest entry.
-			tdelta := uint64((timestamp.Sub(lastTP.Timestamp)).Nanoseconds())
+			lastTS := lastTP.Timestamp
+			tdelta := uint64(timestamp.Sub(lastTS).Nanoseconds())
 			if tdelta > 0 {
 				vdelta := uint64(cpu_usage - lastTP.Value.(uint64))
 				newUsage := vdelta / tdelta

@@ -135,7 +135,7 @@ func (ts *timeStore) Last() *TimePoint {
 	if ts.buffer.Len() == 0 {
 		return nil
 	}
-	tp := ts.buffer.Back().Value.(tpContainer).TimePoint
+	tp := ts.buffer.Front().Value.(tpContainer).TimePoint
 	return &tp
 }
 

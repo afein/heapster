@@ -97,6 +97,31 @@ func TestCMAInsertTime(t *testing.T) {
 	assert.Equal(actual[0].Value, uint64(35))
 	assert.Equal(actual[1].Value, uint64(999))
 }
+func TestCMALast(t *testing.T) {
+	store := NewCMAStore()
+	now := time.Now()
+	assert := assert.New(t)
+
+	// Last invocation with no elements
+	assert.Nil(store.Last())
+
+	// Last invocation with one element
+	assert.NoError(store.Put(TimePoint{now, uint64(6)}))
+	res := store.Last()
+	assert.NotNil(res)
+	assert.Equal(res.Timestamp, now)
+	assert.Equal(res.Value, uint64(6))
+
+	// Last invocation with several element
+	assert.NoError(store.Put(TimePoint{now.Add(10 * time.Second), uint64(10)}))
+	assert.NoError(store.Put(TimePoint{now.Add(5 * time.Second), uint64(5)}))
+	assert.NoError(store.Put(TimePoint{now.Add(12 * time.Second), uint64(12)}))
+	assert.NoError(store.Put(TimePoint{now.Add(3 * time.Second), uint64(3)}))
+	res = store.Last()
+	assert.NotNil(res)
+	assert.Equal(res.Timestamp, now.Add(12*time.Second))
+	assert.Equal(res.Value, uint64(12))
+}
 
 func TestCMADelete(t *testing.T) {
 	zeroTime := time.Time{}
