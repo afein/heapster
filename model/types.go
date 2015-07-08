@@ -49,6 +49,9 @@ type realCluster struct {
 type InfoType struct {
 	Metrics map[string]*store.TimeStore // key: Metric Name
 	Labels  map[string]string           // key: Label
+	// Context retains instantaneous state for a specific InfoType.
+	// Currently used for calculating instantaneous metrics from cumulative counterparts.
+	Context map[string]*store.TimePoint // key: metric name
 }
 
 type ClusterInfo struct {
@@ -80,7 +83,6 @@ type ContainerInfo struct {
 
 // Supported metric names, used as keys for all map[string]*store.TimeStore
 const cpuLimit = "cpu-limit"
-const cpuUsageCumulative = "cpu-usage-cumulative"
 const cpuUsage = "cpu-usage"
 const memLimit = "memory-limit"
 const memUsage = "memory-usage"

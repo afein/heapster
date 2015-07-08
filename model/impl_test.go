@@ -223,17 +223,24 @@ func TestAddMetricToMapNewKey(t *testing.T) {
 func TestParseMetricError(t *testing.T) {
 	var (
 		cluster = newRealCluster(newTimeStore, time.Minute)
+		context = make(map[string]*store.TimePoint)
+		dict    = make(map[string]*store.TimeStore)
+		cme     = cmeFactory()
 		assert  = assert.New(t)
 	)
 
 	// Invoke parseMetric with a nil cme argument
-	stamp, err := cluster.parseMetric(nil, make(map[string]*store.TimeStore))
+	stamp, err := cluster.parseMetric(nil, dict, context)
 	assert.Error(err)
 	assert.Equal(stamp, time.Time{})
 
 	// Invoke parseMetric with a nil dict argument
-	cme := cmeFactory()
-	stamp, err = cluster.parseMetric(cme, nil)
+	stamp, err = cluster.parseMetric(cme, nil, context)
+	assert.Error(err)
+	assert.Equal(stamp, time.Time{})
+
+	// Invoke parseMetric with a nil context argument
+	stamp, err = cluster.parseMetric(cme, dict, nil)
 	assert.Error(err)
 	assert.Equal(stamp, time.Time{})
 }
@@ -244,13 +251,14 @@ func TestParseMetricNormal(t *testing.T) {
 		cluster    = newRealCluster(newTimeStore, time.Minute)
 		zeroTime   = time.Time{}
 		metrics    = make(map[string]*store.TimeStore)
+		context    = make(map[string]*store.TimePoint)
 		normal_cme = cmeFactory()
 		assert     = assert.New(t)
 	)
 	rounded_stamp := normal_cme.Stats.Timestamp.Round(time.Minute)
 
 	// Normal Invocation with a regular CME
-	stamp, err := cluster.parseMetric(normal_cme, metrics)
+	stamp, err := cluster.parseMetric(normal_cme, metrics, context)
 	assert.NoError(err)
 	assert.Equal(stamp, rounded_stamp)
 	for key, ts := range metrics {
@@ -266,8 +274,6 @@ func TestParseMetricNormal(t *testing.T) {
 			assert.Equal(metric.Value, normal_cme.Spec.Memory.Limit)
 		case cpuUsage:
 			assert.True(metric.Value.(uint64) < normal_cme.Spec.Cpu.Limit)
-		case cpuUsageCumulative:
-			assert.Equal(metric.Value, normal_cme.Stats.Cpu.Usage.Total)
 		case memUsage:
 			assert.Equal(metric.Value, normal_cme.Stats.Memory.Usage)
 		case memWorking:
@@ -289,7 +295,7 @@ func TestParseMetricNormal(t *testing.T) {
 func TestUpdateInfoTypeError(t *testing.T) {
 	var (
 		cluster      = newRealCluster(newTimeStore, time.Minute)
-		new_infotype = newInfoType(nil, nil)
+		new_infotype = newInfoType(nil, nil, nil)
 		full_ce      = containerElementFactory(nil)
 		assert       = assert.New(t)
 	)
@@ -313,7 +319,7 @@ func TestUpdateInfoTypeNormal(t *testing.T) {
 		new_cme      = cmeFactory()
 		empty_ce     = containerElementFactory([]*cache.ContainerMetricElement{})
 		nil_ce       = containerElementFactory([]*cache.ContainerMetricElement{new_cme, nil})
-		new_infotype = newInfoType(nil, nil)
+		new_infotype = newInfoType(nil, nil, nil)
 		zeroTime     = time.Time{}
 		assert       = assert.New(t)
 	)
@@ -329,7 +335,7 @@ func TestUpdateInfoTypeNormal(t *testing.T) {
 	assert.NoError(err)
 	assert.NotEmpty(new_infotype.Metrics)
 	assert.NotEqual(stamp, time.Time{})
-	assert.Len(new_infotype.Metrics, 7) // 7 stats in total
+	assert.Len(new_infotype.Metrics, 6) // 6 stats in total - no CPU Usage yet
 	for _, metricStore := range new_infotype.Metrics {
 		metricSlice := (*metricStore).Get(zeroTime, zeroTime)
 		assert.Len(metricSlice, 1) // 1 Metric per stat
@@ -344,11 +350,11 @@ func TestUpdateInfoTypeNormal(t *testing.T) {
 	assert.NoError(err)
 	assert.Empty(new_infotype.Labels)
 	assert.NotEqual(stamp, time.Time{})
-	assert.Len(new_infotype.Metrics, 8) // 8 stats in total
+	assert.Len(new_infotype.Metrics, 7) // 7 stats in total
 	for key, metricStore := range new_infotype.Metrics {
 		metricSlice := (*metricStore).Get(zeroTime, zeroTime)
 		if key == cpuUsage {
-			assert.Len(metricSlice, 1) // cpuUsage consists of n-1 values.
+			assert.Len(metricSlice, 1) // cpuUsage has n-1 values.
 		} else {
 			assert.Len(metricSlice, 2) // 2 Metrics per stat
 		}
@@ -361,7 +367,7 @@ func TestUpdateInfoTypeNormal(t *testing.T) {
 	assert.NoError(err)
 	assert.Empty(new_infotype.Labels)
 	assert.NotEqual(stamp, time.Time{})
-	assert.Len(new_infotype.Metrics, 8) // 7 stats total
+	assert.Len(new_infotype.Metrics, 7) // 7 stats total
 	for key, metricStore := range new_infotype.Metrics {
 		metricSlice := (*metricStore).Get(zeroTime, zeroTime)
 		if key == cpuUsage {
@@ -496,14 +502,20 @@ func TestUpdate(t *testing.T) {
 	assert.NotNil(cluster.Metrics[memWorking])
 	mem_work_ts := *(cluster.Metrics[memWorking])
 	actual := mem_work_ts.Get(time.Time{}, time.Time{})
-	assert.Len(actual, 1)
+	assert.Len(actual, 2)
+	// Datapoint present in both nodes, added up to 1024
 	assert.Equal(actual[0].Value.(uint64), uint64(1204))
+	// Datapoint present in only one node
+	assert.Equal(actual[1].Value.(uint64), uint64(602))
 
 	assert.NotNil(cluster.Metrics[memUsage])
 	mem_usage_ts := *(cluster.Metrics[memUsage])
 	actual = mem_usage_ts.Get(time.Time{}, time.Time{})
-	assert.Len(actual, 1)
+	assert.Len(actual, 2)
+	// Datapoint present in both nodes, added up to 10000
 	assert.Equal(actual[0].Value.(uint64), uint64(10000))
+	// Datapoint present in only one node
+	assert.Equal(actual[1].Value.(uint64), uint64(5000))
 
 	// Assert Kubernetes Metric aggregation up to namespaces
 	ns := cluster.Namespaces["test"]
@@ -543,8 +555,8 @@ func TestGetClusterMetric(t *testing.T) {
 	assert.Equal(stamp, time.Time{})
 	assert.Nil(res)
 
-	// Normal Invocation - cpuUsageCumulative
-	res, stamp, err = cluster.GetClusterMetric(cpuUsageCumulative, time.Time{})
+	// Normal Invocation - memoryUsage
+	res, stamp, err = cluster.GetClusterMetric(memUsage, time.Time{})
 	assert.NoError(err)
 	assert.NotEqual(stamp, time.Time{})
 	assert.NotNil(res)
@@ -563,6 +575,8 @@ func TestGetAvailableMetrics(t *testing.T) {
 
 	// Populate cluster
 	assert.NoError(cluster.Update(source_cache))
+	// Populate cluster
+	assert.NoError(cluster.Update(cacheFactory()))
 
 	// Invocation with normal parameters
 	res = cluster.GetAvailableMetrics()
@@ -793,7 +807,7 @@ func cacheFactory() cache.Cache {
 		Name:     "/",
 		Hostname: "hostname3",
 		Spec:     *cme_4.Spec,
-		Stats:    []*cadvisor.ContainerStats{cme_4.Stats},
+		Stats:    []*cadvisor.ContainerStats{cme_4.Stats, cme_5.Stats},
 	}
 	// Generate a free container
 	free_container := source_api.Container{

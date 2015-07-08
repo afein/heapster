@@ -34,7 +34,7 @@ func NewCluster(tsConstructor func() store.TimeStore, resolution time.Duration) 
 // newRealCluster returns a realCluster, given a TimeStore constructor and a Duration resolution.
 func newRealCluster(tsConstructor func() store.TimeStore, resolution time.Duration) *realCluster {
 	cinfo := ClusterInfo{
-		InfoType:   newInfoType(nil, nil),
+		InfoType:   newInfoType(nil, nil, nil),
 		Namespaces: make(map[string]*NamespaceInfo),
 		Nodes:      make(map[string]*NodeInfo),
 	}
@@ -100,7 +100,7 @@ func (rc *realCluster) addNode(hostname string) *NodeInfo {
 	} else {
 		// Node does not exist in map, create a new NodeInfo object
 		node_ptr = &NodeInfo{
-			InfoType:       newInfoType(nil, nil),
+			InfoType:       newInfoType(nil, nil, nil),
 			Pods:           make(map[string]*PodInfo),
 			FreeContainers: make(map[string]*ContainerInfo),
 		}
@@ -123,7 +123,7 @@ func (rc *realCluster) addNamespace(name string) *NamespaceInfo {
 	} else {
 		// Namespace does not exist in map, create a new NamespaceInfo struct
 		namespace_ptr = &NamespaceInfo{
-			InfoType: newInfoType(nil, nil),
+			InfoType: newInfoType(nil, nil, nil),
 			Pods:     make(map[string]*PodInfo),
 		}
 		rc.Namespaces[name] = namespace_ptr
@@ -165,7 +165,7 @@ func (rc *realCluster) addPod(pod_name string, pod_uid string, namespace *Namesp
 	} else {
 		// Create new Pod and point from node and namespace
 		pod_ptr = &PodInfo{
-			InfoType:   newInfoType(nil, nil),
+			InfoType:   newInfoType(nil, nil, nil),
 			UID:        pod_uid,
 			Containers: make(map[string]*ContainerInfo),
 		}
@@ -190,7 +190,7 @@ func (rc *realCluster) updateInfoType(info *InfoType, ce *cache.ContainerElement
 	}
 
 	for _, cme := range ce.Metrics {
-		stamp, err := rc.parseMetric(cme, info.Metrics)
+		stamp, err := rc.parseMetric(cme, info.Metrics, info.Context)
 		if err != nil {
 			glog.V(2).Infof("failed to parse ContainerMetricElement: %s", err)
 			continue
@@ -227,13 +227,16 @@ func (rc *realCluster) addMetricToMap(metric string, timestamp time.Time, value 
 
 // parseMetric populates a map[string]*TimeStore from a ContainerMetricElement.
 // parseMetric returns the ContainerMetricElement timestamp, iff successful.
-func (rc *realCluster) parseMetric(cme *cache.ContainerMetricElement, dict map[string]*store.TimeStore) (time.Time, error) {
+func (rc *realCluster) parseMetric(cme *cache.ContainerMetricElement, dict map[string]*store.TimeStore, context map[string]*store.TimePoint) (time.Time, error) {
 	zeroTime := time.Time{}
 	if cme == nil {
 		return zeroTime, fmt.Errorf("cannot parse nil ContainerMetricElement")
 	}
 	if dict == nil {
 		return zeroTime, fmt.Errorf("cannot populate nil map")
+	}
+	if context == nil {
+		return zeroTime, fmt.Errorf("nil context provided to parseMetric")
 	}
 
 	// Round the timestamp to the nearest resolution
@@ -242,42 +245,36 @@ func (rc *realCluster) parseMetric(cme *cache.ContainerMetricElement, dict map[s
 
 	// TODO(alex): refactor to avoid repetition
 	if cme.Spec.HasCpu {
-		// Add CPU Limit metric
+		// Append to CPU Limit metric
 		cpu_limit := cme.Spec.Cpu.Limit
 		err := rc.addMetricToMap(cpuLimit, roundedStamp, cpu_limit, dict)
 		if err != nil {
 			return zeroTime, fmt.Errorf("failed to add %s metric: %s", cpuLimit, err)
 		}
 
-		// Add CPU Usage metric
+		// Get the new cumulative CPU Usage datapoint
 		cpu_usage := cme.Stats.Cpu.Usage.Total
 
-		// Use the cpuUsageCumulative metric to calculate deltas for the actual usage
-		tsPtr, ok := dict[cpuUsageCumulative]
-		if ok {
-			// cpuUsageCumulative exists, get the latest entry.
-			ts := (*tsPtr)
-			lastTP := ts.Last()
-
-			// Create a new cpuUsage value based on deltas to the latest entry.
-			lastTS := lastTP.Timestamp
-			tdelta := uint64(timestamp.Sub(lastTS).Nanoseconds())
-			if tdelta > 0 {
-				vdelta := uint64(cpu_usage - lastTP.Value.(uint64))
-				newUsage := vdelta / tdelta
-
-				// Add the new value to the cpuUsage metric
-				err = rc.addMetricToMap(cpuUsage, roundedStamp, newUsage, dict)
-				if err != nil {
-					return zeroTime, fmt.Errorf("failed to add %s metric: %s", cpuUsage, err)
-				}
+		// use the context to store a TimePoint of the previous cpuUsageCumulative.
+		prevTP, ok := context[cpuUsage]
+		if !ok {
+			// Context is empty, add the first TimePoint for cpuUsageCumulative
+			context[cpuUsage] = &store.TimePoint{
+				Timestamp: timestamp,
+				Value:     cpu_usage,
 			}
-		}
+		} else {
+			// Context is not empty, calculate new instantaneous CPU Usage
+			newCPU, err := instantFromCumulativeMetric(cpu_usage, timestamp, prevTP)
+			if err != nil {
+				return zeroTime, fmt.Errorf("failed to calculate instantaneous CPU usage: %s", err)
+			}
 
-		// Add the actual Usage and Timestamp to the cpuUsageCumulative metric
-		err = rc.addMetricToMap(cpuUsageCumulative, timestamp, cpu_usage, dict)
-		if err != nil {
-			return zeroTime, fmt.Errorf("failed to add %s metric: %s", cpuUsageCumulative, err)
+			// Add to CPU Usage metric
+			err = rc.addMetricToMap(cpuUsage, roundedStamp, newCPU, dict)
+			if err != nil {
+				return zeroTime, fmt.Errorf("failed to add %s metric: %s", cpuUsage, err)
+			}
 		}
 	}
 
