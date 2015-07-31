@@ -28,11 +28,11 @@ type Cluster interface {
 
 	// The simple Get operations extract structural information from the Cluster.
 	GetAvailableMetrics() []string
-	GetNodes() []string
-	GetNamespaces() []string
-	GetPods(string) []string
-	GetPodContainers(string, string) []string
-	GetFreeContainers(string) []string
+	GetNodes() []EntityListEntry
+	GetNamespaces() []EntityListEntry
+	GetPods(string) []EntityListEntry
+	GetPodContainers(string, string) []EntityListEntry
+	GetFreeContainers(string) []EntityListEntry
 
 	// The GetXMetric operations extract timeseries from the Cluster.
 	// The returned time.Time values signify the latest metric timestamp in the cluster.
@@ -150,6 +150,13 @@ type StatBundle struct {
 	Minute Stats
 	Hour   Stats
 	Day    Stats
+}
+
+// Listing Types
+type EntityListEntry struct {
+	Name     string
+	CPUUsage uint64
+	MemUsage uint64
 }
 
 // Internal Types

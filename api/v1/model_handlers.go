@@ -375,13 +375,27 @@ func (a *Api) containerPaths(request *restful.Request, response *restful.Respons
 	response.WriteEntity(entities)
 }
 
+// makeExternalEntityList converts the result of model's getX methods to the external type.
+func makeExternalEntityList(list []model.EntityListEntry) []ExternalEntityListEntry {
+	res := make([]ExternalEntityListEntry, 0)
+	for _, item := range list {
+		newItem := ExternalEntityListEntry{
+			Name:     item.Name,
+			CPUUsage: item.CPUUsage,
+			MemUsage: item.MemUsage,
+		}
+		res = append(res, newItem)
+	}
+	return res
+}
+
 // allNodes returns a list of all the available node names in the cluster.
 func (a *Api) allNodes(request *restful.Request, response *restful.Response) {
 	cluster := a.manager.GetCluster()
 	if cluster == nil {
 		response.WriteError(400, errModelNotActivated)
 	}
-	response.WriteEntity(cluster.GetNodes())
+	response.WriteEntity(makeExternalEntityList(cluster.GetNodes()))
 }
 
 // allNamespaces returns a list of all the available namespaces in the cluster.
@@ -390,7 +404,7 @@ func (a *Api) allNamespaces(request *restful.Request, response *restful.Response
 	if cluster == nil {
 		response.WriteError(400, errModelNotActivated)
 	}
-	response.WriteEntity(cluster.GetNamespaces())
+	response.WriteEntity(makeExternalEntityList(cluster.GetNamespaces()))
 }
 
 // allPods returns a list of all the available pods in the cluster.
@@ -400,7 +414,7 @@ func (a *Api) allPods(request *restful.Request, response *restful.Response) {
 		response.WriteError(400, errModelNotActivated)
 	}
 	namespace := request.PathParameter("namespace-name")
-	response.WriteEntity(cluster.GetPods(namespace))
+	response.WriteEntity(makeExternalEntityList(cluster.GetPods(namespace)))
 }
 
 // allPodContainers returns a list of all the available pod containers in the cluster.
@@ -411,7 +425,7 @@ func (a *Api) allPodContainers(request *restful.Request, response *restful.Respo
 	}
 	namespace := request.PathParameter("namespace-name")
 	pod := request.PathParameter("pod-name")
-	response.WriteEntity(cluster.GetPodContainers(namespace, pod))
+	response.WriteEntity(makeExternalEntityList(cluster.GetPodContainers(namespace, pod)))
 }
 
 // allFreeContainers returns a list of all the available free containers in the cluster.
@@ -421,7 +435,7 @@ func (a *Api) allFreeContainers(request *restful.Request, response *restful.Resp
 		response.WriteError(400, errModelNotActivated)
 	}
 	node := request.PathParameter("node-name")
-	response.WriteEntity(cluster.GetFreeContainers(node))
+	response.WriteEntity(makeExternalEntityList(cluster.GetFreeContainers(node)))
 }
 
 // availableMetrics returns a list of available metric names.

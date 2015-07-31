@@ -41,7 +41,13 @@ type ExternalStatBundle struct {
 }
 
 type StatsResponse struct {
-	// Uptime in seconds
+	// Uptime is in seconds
 	Uptime uint64                        `json:"uptime"`
 	Stats  map[string]ExternalStatBundle `json:"stats"`
+}
+
+type ExternalEntityListEntry struct {
+	Name     string `json:"name"`
+	CPUUsage uint64 `json:"cpuUsage"`
+	MemUsage uint64 `json:"memUsage"`
 }

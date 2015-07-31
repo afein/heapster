@@ -193,54 +193,71 @@ func (rc *realCluster) GetFreeContainerMetric(req FreeContainerMetricRequest) ([
 	return res, rc.timestamp, nil
 }
 
-// GetNodes returns the names (hostnames) of all the nodes that are available on the cluster.
-func (rc *realCluster) GetNodes() []string {
+// makeEntityList creates an EntityListEntry from a map of metrics.
+func makeEntityListEntry(name string, entities map[string]*store.DayStore) EntityListEntry {
+	newListEntry := EntityListEntry{}
+	cpu, ok := entities[cpuUsage]
+	if !ok {
+		return newListEntry
+	}
+	mem, ok := entities[memWorking]
+	if !ok {
+		return newListEntry
+	}
+	newListEntry.Name = name
+	newListEntry.CPUUsage = cpu.Hour.Last().Value.(uint64)
+	newListEntry.MemUsage = mem.Hour.Last().Value.(uint64)
+	return newListEntry
+}
+
+// GetNodes returns a slice of EntityListEntry for all the nodes that are available on the cluster.
+func (rc *realCluster) GetNodes() []EntityListEntry {
 	rc.lock.RLock()
 	defer rc.lock.RUnlock()
 
-	res := make([]string, 0)
-	for key := range rc.Nodes {
-		res = append(res, key)
+	res := make([]EntityListEntry, 0)
+	for key, val := range rc.Nodes {
+		res = append(res, makeEntityListEntry(key, val.Metrics))
 	}
 	return res
 }
 
 // GetNamespaces returns the names of all the namespaces that are available on the cluster.
-func (rc *realCluster) GetNamespaces() []string {
+func (rc *realCluster) GetNamespaces() []EntityListEntry {
 	rc.lock.RLock()
 	defer rc.lock.RUnlock()
 
-	res := make([]string, 0)
-	for key := range rc.Namespaces {
-		res = append(res, key)
+	res := make([]EntityListEntry, 0)
+	for key, val := range rc.Namespaces {
+		res = append(res, makeEntityListEntry(key, val.Metrics))
 	}
 	return res
 }
 
 // GetPods returns the names of all the pods that are available on the cluster, under a specific namespace.
-func (rc *realCluster) GetPods(namespace string) []string {
+func (rc *realCluster) GetPods(namespace string) []EntityListEntry {
 	rc.lock.RLock()
 	defer rc.lock.RUnlock()
 
-	res := make([]string, 0)
+	res := make([]EntityListEntry, 0)
 	ns, ok := rc.Namespaces[namespace]
 	if !ok {
 		return res
 	}
 
-	for key := range ns.Pods {
-		res = append(res, key)
+	for key, val := range ns.Pods {
+		res = append(res, makeEntityListEntry(key, val.Metrics))
 	}
 	return res
 }
 
 // GetPodContainers returns the names of all the containers that are available on the cluster,
 // under a specific namespace and pod.
-func (rc *realCluster) GetPodContainers(namespace string, pod string) []string {
+func (rc *realCluster) GetPodContainers(namespace string, pod string) []EntityListEntry {
 	rc.lock.RLock()
 	defer rc.lock.RUnlock()
 
-	res := make([]string, 0)
+	res := make([]EntityListEntry, 0)
 	ns, ok := rc.Namespaces[namespace]
 	if !ok {
 		return res
@@ -250,27 +267,26 @@ func (rc *realCluster) GetPodContainers(namespace string, pod string) []string {
 	if !ok {
 		return res
 	}
-
-	for key := range podref.Containers {
-		res = append(res, key)
+	for key, val := range podref.Containers {
+		res = append(res, makeEntityListEntry(key, val.Metrics))
 	}
 	return res
 }
 
 // GetFreeContainers returns the names of all the containers that are available on the cluster,
 // under a specific node.
-func (rc *realCluster) GetFreeContainers(node string) []string {
+func (rc *realCluster) GetFreeContainers(node string) []EntityListEntry {
 	rc.lock.RLock()
 	defer rc.lock.RUnlock()
 
-	res := make([]string, 0)
+	res := make([]EntityListEntry, 0)
 	noderef, ok := rc.Nodes[node]
 	if !ok {
 		return res
 	}
 
-	for key := range noderef.FreeContainers {
-		res = append(res, key)
+	for key, val := range noderef.FreeContainers {
+		res = append(res, makeEntityListEntry(key, val.Metrics))
 	}
 	return res
 }
