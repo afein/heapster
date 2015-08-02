@@ -737,7 +737,7 @@ func podElementFactory() *cache.PodElement {
 }
 
 // cacheFactory generates a cache with a predetermined structure.
-// The cache contains two pods, one with two containers and one without any containers.
+// The cache contains 2 pods, one with two containers and one without any containers.
 // The cache also contains a free container and a "machine"-tagged container.
 func cacheFactory() cache.Cache {
 	source_cache := cache.NewCache(24 * time.Hour)

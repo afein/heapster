@@ -16,6 +16,7 @@ package model
 
 import (
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/GoogleCloudPlatform/heapster/store"
@@ -222,7 +223,45 @@ func (rc *realCluster) GetNodes() []EntityListEntry {
 	return res
 }
 
-// GetNamespaces returns the names of all the namespaces that are available on the cluster.
+// findPodNamespace finds the namespace name that a given PodInfo belongs to
+// assumes cluster lock is taken by the caller.
+func (rc *realCluster) findPodNamespace(target *PodInfo) (string, error) {
+	for namespace, nsref := range rc.Namespaces {
+		for _, pod := range nsref.Pods {
+			if pod == target {
+				return namespace, nil
+			}
+		}
+	}
+	return "", fmt.Errorf("the specified pod does not belong under a namespace")
+}
+
+// GetNodePods returns the names and latest usage values of all the pods
+// under a specific node.
+func (rc *realCluster) GetNodePods(hostname string) []EntityListEntry {
+	rc.lock.RLock()
+	defer rc.lock.RUnlock()
+
+	res := make([]EntityListEntry, 0)
+	noderef, ok := rc.Nodes[hostname]
+	if !ok {
+		return res
+	}
+
+	for podname, val := range noderef.Pods {
+		// Set the Pod name as <namespace> / <podname>
+		namespace, err := rc.findPodNamespace(val)
+		if err != nil {
+			break
+		}
+		res = append(res, makeEntityListEntry(namespace+"/"+podname, val.Metrics))
+	}
+	fmt.Println(res)
+	return res
+}
+
+// GetNamespaces returns the names and latest usage values of all the namespaces
+// that are available in the model.
 func (rc *realCluster) GetNamespaces() []EntityListEntry {
 	rc.lock.RLock()
 	defer rc.lock.RUnlock()
@@ -234,7 +273,8 @@ func (rc *realCluster) GetNamespaces() []EntityListEntry {
 	return res
 }
 
-// GetPods returns the names of all the pods that are available on the cluster, under a specific namespace.
+// GetPods returns the names and latest usage values of all the pods that are
+// available in the model under a specific namespace.
 func (rc *realCluster) GetPods(namespace string) []EntityListEntry {
 	rc.lock.RLock()
 	defer rc.lock.RUnlock()
@@ -251,8 +291,8 @@ func (rc *realCluster) GetPods(namespace string) []EntityListEntry {
 	return res
 }
 
-// GetPodContainers returns the names of all the containers that are available on the cluster,
-// under a specific namespace and pod.
+// GetPodContainers returns the names and latest usage values of all the containers
+// that are available in the model under a specific namespace and pod.
 func (rc *realCluster) GetPodContainers(namespace string, pod string) []EntityListEntry {
 	rc.lock.RLock()
 	defer rc.lock.RUnlock()
@@ -273,8 +313,8 @@ func (rc *realCluster) GetPodContainers(namespace string, pod string) []EntityLi
 	return res
 }
 
-// GetFreeContainers returns the names of all the containers that are available on the cluster,
-// under a specific node.
+// GetFreeContainers returns the names and latest usage values of all the containers
+//that are available in the model under a specific node.
 func (rc *realCluster) GetFreeContainers(node string) []EntityListEntry {
 	rc.lock.RLock()
 	defer rc.lock.RUnlock()

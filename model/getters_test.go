@@ -480,6 +480,25 @@ func TestGetNodes(t *testing.T) {
 	assert.Len(res, 2)
 }
 
+//TestGetNodePods tests the flow of GetNodePods.
+func TestGetNodePods(t *testing.T) {
+	var (
+		cluster      = newRealCluster(newDayStore, newTimeStore, time.Minute)
+		source_cache = cacheFactory()
+		assert       = assert.New(t)
+	)
+	// Populate cluster
+	assert.NoError(cluster.Update(source_cache))
+
+	// Invocation with nonexistant node
+	res := cluster.GetNodePods("nonexistant")
+	assert.Len(res, 0)
+
+	// Normal Invocation
+	res = cluster.GetNodePods("hostname2")
+	assert.Len(res, 1)
+}
+
 //TestGetNamespaces tests the flow of GetNamespaces.
 func TestGetNamespaces(t *testing.T) {
 	var (

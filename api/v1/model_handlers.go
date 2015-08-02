@@ -269,6 +269,14 @@ func (a *Api) RegisterModel(container *restful.Container) {
 		Param(ws.QueryParameter("end", "End time for requested metric").DataType("string")).
 		Writes(MetricResult{}))
 
+	// The /nodes/{node-name}/pods/ endpoint returns a list of all Pods entities under a specified node.
+	ws.Route(ws.GET("/nodes/{node-name}/pods/").
+		To(a.nodePods).
+		Filter(compressionFilter).
+		Doc("Get a list of all Pods belonging to a specified Node in the model").
+		Operation("nodePods").
+		Param(ws.PathParameter("node-name", "The name of the namespace to lookup").DataType("string")))
+
 	// The /nodes/{node-name}/freecontainers/ endpoint returns a list of all free Container entities,
 	// under a specified node.
 	ws.Route(ws.GET("/nodes/{node-name}/freecontainers/").
@@ -350,6 +358,7 @@ func (a *Api) namespacePaths(request *restful.Request, response *restful.Respons
 func (a *Api) nodePaths(request *restful.Request, response *restful.Response) {
 	entities := []string{
 		"freecontainers/",
+		"pods/",
 		"metrics/",
 		"stats/",
 	}
@@ -436,6 +445,16 @@ func (a *Api) allFreeContainers(request *restful.Request, response *restful.Resp
 	}
 	node := request.PathParameter("node-name")
 	response.WriteEntity(makeExternalEntityList(cluster.GetFreeContainers(node)))
+}
+
+// nodePods returns a list of all the available API paths that are available for a node.
+func (a *Api) nodePods(request *restful.Request, response *restful.Response) {
+	cluster := a.manager.GetCluster()
+	if cluster == nil {
+		response.WriteError(400, errModelNotActivated)
+	}
+	node := request.PathParameter("node-name")
+	response.WriteEntity(makeExternalEntityList(cluster.GetNodePods(node)))
 }
 
 // availableMetrics returns a list of available metric names.
