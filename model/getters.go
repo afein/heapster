@@ -198,16 +198,20 @@ func (rc *realCluster) GetFreeContainerMetric(req FreeContainerMetricRequest) ([
 func makeEntityListEntry(name string, entities map[string]*store.DayStore) EntityListEntry {
 	newListEntry := EntityListEntry{}
 	cpu, ok := entities[cpuUsage]
-	if !ok {
-		return newListEntry
+	if !ok || cpu.Hour.Last() == nil {
+		newListEntry.CPUUsage = uint64(0)
+	} else {
+		newListEntry.CPUUsage = cpu.Hour.Last().Value.(uint64)
 	}
+
 	mem, ok := entities[memWorking]
-	if !ok {
-		return newListEntry
+	if !ok || mem.Hour.Last() == nil {
+		newListEntry.MemUsage = uint64(0)
+	} else {
+		newListEntry.MemUsage = mem.Hour.Last().Value.(uint64)
 	}
 	newListEntry.Name = name
-	newListEntry.CPUUsage = cpu.Hour.Last().Value.(uint64)
-	newListEntry.MemUsage = mem.Hour.Last().Value.(uint64)
+
 	return newListEntry
 }
 
@@ -218,7 +222,12 @@ func (rc *realCluster) GetNodes() []EntityListEntry {
 
 	res := make([]EntityListEntry, 0)
 	for key, val := range rc.Nodes {
-		res = append(res, makeEntityListEntry(key, val.Metrics))
+		newEntity := makeEntityListEntry(key, val.Metrics)
+		// Ignore entities with no name populated (errors)
+		if newEntity.Name == "" {
+			continue
+		}
+		res = append(res, newEntity)
 	}
 	return res
 }
@@ -254,7 +263,11 @@ func (rc *realCluster) GetNodePods(hostname string) []EntityListEntry {
 		if err != nil {
 			break
 		}
-		res = append(res, makeEntityListEntry(namespace+"/"+podname, val.Metrics))
+		newEntity := makeEntityListEntry(namespace+"/"+podname, val.Metrics)
+		if newEntity.Name == "" {
+			continue
+		}
+		res = append(res, newEntity)
 	}
 	fmt.Println(res)
 	return res
@@ -268,7 +281,11 @@ func (rc *realCluster) GetNamespaces() []EntityListEntry {
 
 	res := make([]EntityListEntry, 0)
 	for key, val := range rc.Namespaces {
-		res = append(res, makeEntityListEntry(key, val.Metrics))
+		newEntity := makeEntityListEntry(key, val.Metrics)
+		if newEntity.Name == "" {
+			continue
+		}
+		res = append(res, newEntity)
 	}
 	return res
 }
@@ -286,7 +303,11 @@ func (rc *realCluster) GetPods(namespace string) []EntityListEntry {
 	}
 
 	for key, val := range ns.Pods {
-		res = append(res, makeEntityListEntry(key, val.Metrics))
+		newEntity := makeEntityListEntry(key, val.Metrics)
+		if newEntity.Name == "" {
+			continue
+		}
+		res = append(res, newEntity)
 	}
 	return res
 }
@@ -308,7 +329,11 @@ func (rc *realCluster) GetPodContainers(namespace string, pod string) []EntityLi
 		return res
 	}
 	for key, val := range podref.Containers {
-		res = append(res, makeEntityListEntry(key, val.Metrics))
+		newEntity := makeEntityListEntry(key, val.Metrics)
+		if newEntity.Name == "" {
+			continue
+		}
+		res = append(res, newEntity)
 	}
 	return res
 }
@@ -326,7 +351,11 @@ func (rc *realCluster) GetFreeContainers(node string) []EntityListEntry {
 	}
 
 	for key, val := range noderef.FreeContainers {
-		res = append(res, makeEntityListEntry(key, val.Metrics))
+		newEntity := makeEntityListEntry(key, val.Metrics)
+		if newEntity.Name == "" {
+			continue
+		}
+		res = append(res, newEntity)
 	}
 	return res
 }

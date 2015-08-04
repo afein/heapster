@@ -32,6 +32,7 @@ type Cluster interface {
 	GetNamespaces() []EntityListEntry
 	GetPods(string) []EntityListEntry
 	GetPodContainers(string, string) []EntityListEntry
+	GetNodePods(string) []EntityListEntry
 	GetFreeContainers(string) []EntityListEntry
 
 	// The GetXMetric operations extract timeseries from the Cluster.
