@@ -42,7 +42,7 @@ func (gcs *gcStore) Delete(start, end time.Time) error {
 	return gcs.store.Delete(start, end)
 }
 
-func (gcs *gcStore) Last() *TimePoint {
+func (gcs *gcStore) Last() (TimePoint, error) {
 	return gcs.store.Last()
 }
 

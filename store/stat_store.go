@@ -15,6 +15,10 @@
 package store
 
 import (
+	/*
+		"math"
+		"sort"
+	*/
 	"sync"
 	"time"
 
@@ -33,8 +37,6 @@ const (
 type StatStore interface {
 	TimeStore
 
-	// Last returns the last TimePoint.
-	Last() *TimePoint
 	// GetAverage gets the average value of all TimePoints.
 	Average() uint64
 	// GetMax gets the max value of the all TimePoints.
@@ -43,18 +45,25 @@ type StatStore interface {
 	Percentile(n float64) uint64
 }
 
+// statStore is an implementation of StatStore.
+// statStore calculates and caches all derived stats at the first invocation of
+// the Average, Max or Percentile methods.
 type statStore struct {
 	sync.Mutex
 	ts TimeStore
 
-	validCache        bool
-	cachedAverage     uint64
-	cachedMax         uint64
-	cachedFiftieth    uint64
-	cachedNinetieth   uint64
-	cachedNinetyFifth uint64
+	// supportedPercentiles dictates which percentiles are calculated and cached
+	supportedPercentiles []float64
+	validCache           bool
+	cachedAverage        uint64
+	cachedMax            uint64
+	cachedFiftieth       uint64
+	cachedNinetieth      uint64
+	cachedNinetyFifth    uint64
 }
 
+// Put calls the Put method of the underlying TimeStore.
+// Put also invalidates the cached values.
 func (s *statStore) Put(tp TimePoint) error {
 	s.Lock()
 	defer s.Unlock()
@@ -62,10 +71,13 @@ func (s *statStore) Put(tp TimePoint) error {
 	return s.ts.Put(tp)
 }
 
+// Get calls the Get method of the underlying TimeStore.
 func (s *statStore) Get(start, end time.Time) []TimePoint {
 	return s.ts.Get(start, end)
 }
 
+// Delete calls the Delete method of the underlying TimeStore.
+// Delete also invalidates the cached values.
 func (s *statStore) Delete(start, end time.Time) error {
 	s.Lock()
 	defer s.Unlock()
@@ -73,23 +85,18 @@ func (s *statStore) Delete(start, end time.Time) error {
 	return s.ts.Delete(start, end)
 }
 
+// getAll returns all TimePoints stored in the StatStore.
 func (s *statStore) getAll() []TimePoint {
 	zeroTime := time.Time{}
 	return s.ts.Get(zeroTime, zeroTime)
 }
 
-func (s *statStore) Last() *TimePoint {
-	all := s.getAll()
-	if len(all) < 1 {
-		return nil
-	}
-	// To not give the impression that this allows the caller to change
-	// the last value in the underlying data structure, return the address
-	// of a copy
-	last := all[len(all)-1]
-	return &last
+// Last returns the latest TimePoint in the StatStore.
+func (s *statStore) Last() (TimePoint, error) {
+	return s.ts.Last()
 }
 
+/*
 type Uint64Slice []uint64
 
 func (a Uint64Slice) Len() int           { return len(a) }
@@ -115,6 +122,7 @@ func (self Uint64Slice) GetPercentile(d float64) uint64 {
 	}
 	return uint64(percentile)
 }
+*/
 
 func (s *statStore) fillCache() {
 	if s.validCache {
@@ -151,6 +159,8 @@ func (s *statStore) fillCache() {
 	s.cachedMax = inc[len(inc)-1]
 }
 
+// Average returns the cached Average value, or calculates it
+// if the cache has been invalidated.
 func (s *statStore) Average() uint64 {
 	s.Lock()
 	defer s.Unlock()
@@ -158,6 +168,8 @@ func (s *statStore) Average() uint64 {
 	return s.cachedAverage
 }
 
+// Max returns the cached Max value, or calculates it
+// if the cache has been invalidated.
 func (s *statStore) Max() uint64 {
 	s.Lock()
 	defer s.Unlock()
@@ -165,18 +177,22 @@ func (s *statStore) Max() uint64 {
 	return s.cachedMax
 }
 
+// Percentile returns the cached Percentile value, or calculates it
+// if the cache has been invalidated.
 func (s *statStore) Percentile(n float64) uint64 {
 	s.Lock()
 	defer s.Unlock()
 	s.fillCache()
+	res := uint64(0)
 	switch n {
 	case Fiftieth:
-		return s.cachedFiftieth
+		res = s.cachedFiftieth
 	case Ninetieth:
-		return s.cachedNinetieth
+		res = s.cachedNinetieth
 	case NinetyFifth:
-		return s.cachedNinetyFifth
+		res = s.cachedNinetyFifth
 	}
+	return res
 }
 
 func NewStatStore(store TimeStore) StatStore {

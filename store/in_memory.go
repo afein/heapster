@@ -75,13 +75,13 @@ func timeEqualOrAfter(t1, t2 time.Time) bool {
 	return false
 }
 
-func (ts *timeStore) Last() *TimePoint {
+func (ts *timeStore) Last() (TimePoint, error) {
 	elem := ts.buffer.Front()
 	if elem == nil {
-		return nil
+		return TimePoint{}, fmt.Errorf("the TimeStore is empty")
 	}
 	tp := elem.Value.(TimePoint)
-	return &tp
+	return tp, nil
 }
 
 func (ts *timeStore) Get(start, end time.Time) []TimePoint {

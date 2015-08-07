@@ -34,9 +34,9 @@ type TimeStore interface {
 	// Delete removes all elements that were previously stored with timestamps
 	// between 'start' and 'end'.
 	Delete(start, end time.Time) error
-	// Last returns a pointer to the latest TimePoint available in the TimeStore.
-	// If the TimeStore is empty, nil is returned instead.
-	Last() *TimePoint
+	// Last returns a the latest TimePoint available in the TimeStore.
+	// If the TimeStore is empty, an empty TimePoint and an error are returned.
+	Last() (TimePoint, error)
 }
 
 // TimePoint is a single point of a timeseries, representing a time-value pair.

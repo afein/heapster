@@ -142,8 +142,15 @@ func TestCMADelete(t *testing.T) {
 	assert.Error(store.Delete(now, now.Add(-time.Minute)))
 }
 
+// TestLast tests the Last method of the CMAStore.
 func TestLast(t *testing.T) {
 	store := NewCMAStore()
+
+	// Invocation with no data present
+	last, err := store.Last()
+	assert.Error(err)
+	assert.Equal(last, TimePoint{})
+
 	now := time.Now()
 	assert := assert.New(t)
 	assert.NoError(putWrapper(store, now, 2))
@@ -151,8 +158,9 @@ func TestLast(t *testing.T) {
 	assert.NoError(putWrapper(store, now.Add(time.Second), 3))
 	assert.NoError(putWrapper(store, now.Add(-2*time.Second), 0))
 
-	last := store.Last()
-	assert.NotNil(last)
+	// Invocation with data present
+	last, err = store.Last()
+	assert.NoError(err)
 	assert.Equal(last.Value.(int), 3)
 	assert.Equal(last.Timestamp, now.Add(time.Second))
 }
