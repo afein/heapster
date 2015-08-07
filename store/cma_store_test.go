@@ -141,3 +141,18 @@ func TestCMADelete(t *testing.T) {
 	// Invocation with error (start after end)
 	assert.Error(store.Delete(now, now.Add(-time.Minute)))
 }
+
+func TestLast(t *testing.T) {
+	store := NewCMAStore()
+	now := time.Now()
+	assert := assert.New(t)
+	assert.NoError(putWrapper(store, now, 2))
+	assert.NoError(putWrapper(store, now.Add(-time.Second), 1))
+	assert.NoError(putWrapper(store, now.Add(time.Second), 3))
+	assert.NoError(putWrapper(store, now.Add(-2*time.Second), 0))
+
+	last := store.Last()
+	assert.NotNil(last)
+	assert.Equal(last.Value.(int), 3)
+	assert.Equal(last.Timestamp, now.Add(time.Second))
+}

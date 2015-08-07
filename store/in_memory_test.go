@@ -82,3 +82,18 @@ func TestDelete(t *testing.T) {
 	assert.NoError(store.Delete(time.Time{}, time.Time{}))
 	assert.Empty(store.Get(time.Time{}, time.Time{}))
 }
+
+func TestLast(t *testing.T) {
+	store := NewTimeStore()
+	now := time.Now()
+	assert := assert.New(t)
+	assert.NoError(putWrapper(store, now, 2))
+	assert.NoError(putWrapper(store, now.Add(-time.Second), 1))
+	assert.NoError(putWrapper(store, now.Add(time.Second), 3))
+	assert.NoError(putWrapper(store, now.Add(-2*time.Second), 0))
+
+	last := store.Last()
+	assert.NotNil(last)
+	assert.Equal(last.Value.(int), 3)
+	assert.Equal(last.Timestamp, now.Add(time.Second))
+}

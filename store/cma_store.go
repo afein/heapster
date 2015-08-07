@@ -134,6 +134,15 @@ func (ts *cmaStore) Delete(start, end time.Time) error {
 	return nil
 }
 
+func (ts *cmaStore) Last() *TimePoint {
+	elem := ts.buffer.Front()
+	if elem == nil {
+		return nil
+	}
+	tp := elem.Value.(TimePoint)
+	return &tp
+}
+
 func NewCMAStore() TimeStore {
 	return &cmaStore{
 		buffer: list.New(),

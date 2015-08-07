@@ -75,6 +75,15 @@ func timeEqualOrAfter(t1, t2 time.Time) bool {
 	return false
 }
 
+func (ts *timeStore) Last() *TimePoint {
+	elem := ts.buffer.Front()
+	if elem == nil {
+		return nil
+	}
+	tp := elem.Value.(TimePoint)
+	return &tp
+}
+
 func (ts *timeStore) Get(start, end time.Time) []TimePoint {
 	ts.rwLock.RLock()
 	defer ts.rwLock.RUnlock()
