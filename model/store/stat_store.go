@@ -21,6 +21,8 @@ import (
 	"sort"
 	"sync"
 	"time"
+
+	"github.com/GoogleCloudPlatform/heapster/store"
 )
 
 func NewStatStore(epsilon uint64, resolution time.Duration, windowDuration uint8, supportedPercentiles []float64) *statStore {
@@ -43,7 +45,7 @@ type statStore struct {
 	// start is the start of the time window.
 	start time.Time
 
-	// buffer is a list of tpBucket that is sequenced in a time-descending order, meaning that
+	// buffer is a list of tpBucket that is sequenced in a time-descending order, meaning that -
 	// Front points to the latest tpBucket and Back to the oldest one.
 	buffer *list.List
 
@@ -113,7 +115,7 @@ type putState struct {
 	stamp       time.Time
 }
 
-func (ss *statStore) Put(tp TimePoint) error {
+func (ss *statStore) Put(tp store.TimePoint) error {
 	ss.Lock()
 	defer ss.Unlock()
 
@@ -254,11 +256,11 @@ func (ss *statStore) rewind() {
 
 // Get generates a []TimePoint from the appropriate tpEntries.
 // Get receives a start and end time as inputs.
-func (ss *statStore) Get(start, end time.Time) []TimePoint {
+func (ss *statStore) Get(start, end time.Time) []store.TimePoint {
 	ss.RLock()
 	defer ss.RUnlock()
 
-	var result []TimePoint
+	var result []store.TimePoint
 
 	if ss.buffer.Len() == 0 || (start.After(end) && end.After(time.Time{})) {
 		return result
@@ -299,7 +301,7 @@ func (ss *statStore) Get(start, end time.Time) []TimePoint {
 
 			// this TimePoint is in (start, end), generate it
 			newSkip++
-			newTP := TimePoint{
+			newTP := store.TimePoint{
 				Timestamp: newStamp,
 				Value:     entry.value,
 			}
@@ -314,20 +316,20 @@ func (ss *statStore) Get(start, end time.Time) []TimePoint {
 // Last returns the latest TimePoint represented in the statStore,
 // or an error if the statStore is empty.
 // Note: the lastPut field is not used, as we are not confident of its final value.
-func (ss *statStore) Last() (TimePoint, error) {
-	ss.RLock()
-	defer ss.RUnlock()
+func (ss *statStore) Last() (store.TimePoint, error) {
+	ss.Lock()
+	defer ss.Unlock()
 
 	// Obtain latest tpBucket
 	lastElem := ss.buffer.Front()
 	if lastElem == nil {
-		return TimePoint{}, fmt.Errorf("the statStore is empty")
+		return store.TimePoint{}, fmt.Errorf("the statStore is empty")
 	}
 
 	lastEntry := lastElem.Value.(tpBucket)
 
 	// create the latest TimePoint from lastEntry
-	lastTP := TimePoint{
+	lastTP := store.TimePoint{
 		Timestamp: ss.start.Add(time.Duration(ss.tpCount-1) * ss.resolution),
 		Value:     lastEntry.value,
 	}
@@ -380,8 +382,8 @@ func (ss *statStore) fillCache() {
 // Average performs a weighted average across all buckets, using the count of -
 // resolutions at each bucket as the weight.
 func (ss *statStore) Average() (uint64, error) {
-	ss.RLock()
-	defer ss.RUnlock()
+	ss.Lock()
+	defer ss.Unlock()
 
 	lastElem := ss.buffer.Front()
 	if lastElem == nil {
@@ -397,8 +399,8 @@ func (ss *statStore) Average() (uint64, error) {
 // Max returns the maximum element currently in the statStore.
 // Max does NOT consider the case where the maximum is in the last one minute.
 func (ss *statStore) Max() (uint64, error) {
-	ss.RLock()
-	defer ss.RUnlock()
+	ss.Lock()
+	defer ss.Unlock()
 
 	if ss.buffer.Front() == nil {
 		return uint64(0), fmt.Errorf("the statStore is empty")
@@ -412,8 +414,8 @@ func (ss *statStore) Max() (uint64, error) {
 
 // Percentile returns the requested percentile from the statStore.
 func (ss *statStore) Percentile(p float64) (uint64, error) {
-	ss.RLock()
-	defer ss.RUnlock()
+	ss.Lock()
+	defer ss.Unlock()
 
 	if ss.buffer.Front() == nil {
 		return uint64(0), fmt.Errorf("the statStore is empty")
