@@ -19,44 +19,53 @@ import (
 	"time"
 
 	"k8s.io/heapster/sinks/cache"
-	"k8s.io/heapster/store"
+	"k8s.io/heapster/store/daystore"
+	"k8s.io/heapster/store/statstore"
 )
 
 type Cluster interface {
 	// The Update operation populates the Cluster from a cache.
 	Update(cache.Cache) error
 
+	// The simple Get operations extract structural information from the Cluster.
+	GetAvailableMetrics() []string
+	GetNodes() []EntityListEntry
+	GetNamespaces() []EntityListEntry
+	GetPods(string) []EntityListEntry
+	GetPodContainers(string, string) []EntityListEntry
+	GetNodePods(string) []EntityListEntry
+	GetFreeContainers(string) []EntityListEntry
+
 	// The GetXMetric operations extract timeseries from the Cluster.
 	// The returned time.Time values signify the latest metric timestamp in the cluster.
-	GetClusterMetric(ClusterRequest) ([]store.TimePoint, time.Time, error)
-	GetNodeMetric(NodeRequest) ([]store.TimePoint, time.Time, error)
-	GetNamespaceMetric(NamespaceRequest) ([]store.TimePoint, time.Time, error)
-	GetPodMetric(PodRequest) ([]store.TimePoint, time.Time, error)
-	GetBatchPodMetric(req BatchPodRequest) ([][]store.TimePoint, time.Time, error)
-	GetPodContainerMetric(PodContainerRequest) ([]store.TimePoint, time.Time, error)
-	GetFreeContainerMetric(FreeContainerRequest) ([]store.TimePoint, time.Time, error)
+	GetClusterMetric(ClusterMetricRequest) ([]statstore.TimePoint, time.Time, error)
+	GetNodeMetric(NodeMetricRequest) ([]statstore.TimePoint, time.Time, error)
+	GetNamespaceMetric(NamespaceMetricRequest) ([]statstore.TimePoint, time.Time, error)
+	GetPodMetric(PodMetricRequest) ([]statstore.TimePoint, time.Time, error)
+	GetBatchPodMetric(req BatchPodRequest) ([][]statstore.TimePoint, time.Time, error)
+	GetPodContainerMetric(PodContainerMetricRequest) ([]statstore.TimePoint, time.Time, error)
+	GetFreeContainerMetric(FreeContainerMetricRequest) ([]statstore.TimePoint, time.Time, error)
 
-	// The normal Get operations extract information from the Cluster structure.
-	GetAvailableMetrics() []string
-	GetNodes() []string
-	GetNamespaces() []string
-	GetPods(string) []string
-	GetPodContainers(string, string) []string
-	GetFreeContainers(string) []string
+	// The GetXStats operations extract all derived stats for a single entity of the cluster.
+	GetClusterStats() (map[string]StatBundle, time.Duration, error)
+	GetNodeStats(NodeRequest) (map[string]StatBundle, time.Duration, error)
+	GetNamespaceStats(NamespaceRequest) (map[string]StatBundle, time.Duration, error)
+	GetPodStats(PodRequest) (map[string]StatBundle, time.Duration, error)
+	GetPodContainerStats(PodContainerRequest) (map[string]StatBundle, time.Duration, error)
+	GetFreeContainerStats(FreeContainerRequest) (map[string]StatBundle, time.Duration, error)
 }
 
 // realCluster is an implementation of the Cluster interface.
 // timestamp marks the latest timestamp of any metric present in the realCluster.
 // tsConstructor generates a new empty TimeStore, used for storing historical data.
 type realCluster struct {
-	timestamp     time.Time
-	lock          sync.RWMutex
-	tsConstructor func() store.TimeStore
-	resolution    time.Duration
+	timestamp  time.Time
+	lock       sync.RWMutex
+	resolution time.Duration
 	ClusterInfo
 }
 
-// Supported metric names, used as keys for all map[string]*store.TimeStore
+// Supported metric names, used as keys for all map[string]*daystore.DayStore
 const cpuLimit = "cpu-limit"
 const cpuUsage = "cpu-usage"
 const memLimit = "memory-limit"
@@ -65,34 +74,24 @@ const memWorking = "memory-working"
 const fsLimit = "fs-limit"
 const fsUsage = "fs-usage"
 
-// Request Types.
-// Used as parameters to all the Get methods of the model.
-type ClusterRequest struct {
+// Simple Request Types.
+type MetricRequest struct {
 	MetricName string
 	Start      time.Time
 	End        time.Time
 }
 
 type NodeRequest struct {
-	NodeName   string
-	MetricName string
-	Start      time.Time
-	End        time.Time
+	NodeName string
 }
 
 type NamespaceRequest struct {
 	NamespaceName string
-	MetricName    string
-	Start         time.Time
-	End           time.Time
 }
 
 type PodRequest struct {
 	NamespaceName string
 	PodName       string
-	MetricName    string
-	Start         time.Time
-	End           time.Time
 }
 
 type BatchPodRequest struct {
@@ -107,26 +106,76 @@ type PodContainerRequest struct {
 	NamespaceName string
 	PodName       string
 	ContainerName string
-	MetricName    string
-	Start         time.Time
-	End           time.Time
 }
 
 type FreeContainerRequest struct {
 	NodeName      string
 	ContainerName string
-	MetricName    string
-	Start         time.Time
-	End           time.Time
+}
+
+// Metric Request Types
+type ClusterMetricRequest struct {
+	MetricRequest
+}
+
+type NodeMetricRequest struct {
+	NodeName string
+	MetricRequest
+}
+
+type NamespaceMetricRequest struct {
+	NamespaceName string
+	MetricRequest
+}
+
+type PodMetricRequest struct {
+	NamespaceName string
+	PodName       string
+	MetricRequest
+}
+
+type PodContainerMetricRequest struct {
+	NamespaceName string
+	PodName       string
+	ContainerName string
+	MetricRequest
+}
+
+type FreeContainerMetricRequest struct {
+	NodeName      string
+	ContainerName string
+	MetricRequest
+}
+
+// Derived Stats Types
+
+type Stats struct {
+	Average    uint64
+	Percentile uint64
+	Max        uint64
+}
+
+type StatBundle struct {
+	Minute Stats
+	Hour   Stats
+	Day    Stats
+}
+
+// Listing Types
+type EntityListEntry struct {
+	Name     string
+	CPUUsage uint64
+	MemUsage uint64
 }
 
 // Internal Types
 type InfoType struct {
-	Metrics map[string]*store.TimeStore // key: Metric Name
-	Labels  map[string]string           // key: Label
+	Uptime  time.Duration
+	Metrics map[string]*daystore.DayStore // key: Metric Name
+	Labels  map[string]string             // key: Label
 	// Context retains instantaneous state for a specific InfoType.
 	// Currently used for calculating instantaneous metrics from cumulative counterparts.
-	Context map[string]*store.TimePoint // key: metric name
+	Context map[string]*statstore.TimePoint // key: metric name
 }
 
 type ClusterInfo struct {

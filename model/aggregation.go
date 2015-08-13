@@ -18,7 +18,8 @@ import (
 	"fmt"
 	"time"
 
-	"k8s.io/heapster/store"
+	"k8s.io/heapster/store/daystore"
+	"k8s.io/heapster/store/statstore"
 )
 
 // aggregationStep performs a Metric Aggregation step on the cluster.
@@ -182,33 +183,44 @@ func (rc *realCluster) aggregateMetrics(target *InfoType, sources []*InfoType) e
 	}
 
 	// Create a map of []TimePoint as a timeseries accumulator per metric
-	newMetrics := make(map[string][]store.TimePoint)
+	newMetrics := make(map[string][]statstore.TimePoint)
 
 	// Reduce the sources slice with timeseries addition for each metric
 	for _, info := range sources {
-		for key, ts := range info.Metrics {
+		for key, ds := range info.Metrics {
 			_, ok := newMetrics[key]
 			if !ok {
 				// Metric does not exist on target map, create a new timeseries
-				newMetrics[key] = []store.TimePoint{}
+				newMetrics[key] = []statstore.TimePoint{}
 			}
 			// Perform timeseries addition between the accumulator and the current source
-			sourceTS := (*ts).Get(rc.timestamp, zeroTime)
-			newMetrics[key] = addMatchingTimeseries(newMetrics[key], sourceTS)
+			sourceDS := (*ds).Hour.Get(rc.timestamp, zeroTime)
+			newMetrics[key] = addMatchingTimeseries(newMetrics[key], sourceDS)
 		}
 	}
 
-	// Put all the new values in the TimeStores under target
+	// Put all the new values in the DayStores under target
 	for key, tpSlice := range newMetrics {
 		_, ok := target.Metrics[key]
 		if !ok {
 			// Metric does not exist on target InfoType, create TimeStore
-			newTS := rc.tsConstructor()
-			target.Metrics[key] = &newTS
+			// TODO(afein): configure epsilon
+			newDS := daystore.NewDayStore(100, rc.resolution)
+			target.Metrics[key] = newDS
 		}
 		for _, tp := range tpSlice {
 			(*target.Metrics[key]).Put(tp)
 		}
 	}
+
+	// Set the uptime to the longest one
+	longestUptime := time.Duration(0)
+	for _, info := range sources {
+		if info.Uptime.Nanoseconds() > longestUptime.Nanoseconds() {
+			longestUptime = info.Uptime
+		}
+	}
+	target.Uptime = longestUptime
+
 	return nil
 }

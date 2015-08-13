@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package store
+package statstore
 
 import (
 	"container/list"
@@ -108,7 +108,7 @@ type StatStore struct {
 	windowDuration uint8
 
 	// tpCount is the number of TimePoints that are represented in the StatStore.
-	// Ff tpCount is equal to windowDuration, then the StatStore window is considered full.
+	// If tpCount is equal to windowDuration, then the StatStore window is considered full.
 	tpCount uint8
 
 	// lastPut maintains the state of values inserted within the last resolution.

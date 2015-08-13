@@ -19,15 +19,17 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
-	"k8s.io/heapster/store"
+	"k8s.io/heapster/store/daystore"
+	"k8s.io/heapster/store/statstore"
 )
 
 // TestAggregateNodeMetricsEmpty tests the empty flow of aggregateNodeMetrics.
 // The normal flow is tested through TestUpdate.
 func TestAggregateNodeMetricsEmpty(t *testing.T) {
 	var (
-		cluster = newRealCluster(newTimeStore, time.Minute)
+		cluster = newRealCluster(time.Minute)
 		c       = make(chan error)
 		assert  = assert.New(t)
 	)
@@ -43,7 +45,7 @@ func TestAggregateNodeMetricsEmpty(t *testing.T) {
 // The normal flow is tested through TestUpdate.
 func TestAggregateKubeMetricsEmpty(t *testing.T) {
 	var (
-		cluster = newRealCluster(newTimeStore, time.Minute)
+		cluster = newRealCluster(time.Minute)
 		c       = make(chan error)
 		assert  = assert.New(t)
 	)
@@ -64,7 +66,7 @@ func TestAggregateKubeMetricsEmpty(t *testing.T) {
 // The normal flow is tested through TestUpdate.
 func TestAggregateNamespaceMetricsError(t *testing.T) {
 	var (
-		cluster = newRealCluster(newTimeStore, time.Minute)
+		cluster = newRealCluster(time.Minute)
 		c       = make(chan error)
 		assert  = assert.New(t)
 	)
@@ -90,7 +92,7 @@ func TestAggregateNamespaceMetricsError(t *testing.T) {
 // The normal flow is tested through TestUpdate.
 func TestAggregatePodMetricsError(t *testing.T) {
 	var (
-		cluster = newRealCluster(newTimeStore, time.Minute)
+		cluster = newRealCluster(time.Minute)
 		c       = make(chan error)
 		assert  = assert.New(t)
 	)
@@ -116,13 +118,13 @@ func TestAggregatePodMetricsError(t *testing.T) {
 // TestAggregateMetricsError tests the error flows of aggregateMetrics.
 func TestAggregateMetricsError(t *testing.T) {
 	var (
-		cluster    = newRealCluster(newTimeStore, time.Minute)
+		cluster    = newRealCluster(time.Minute)
 		targetInfo = InfoType{
-			Metrics: make(map[string]*store.TimeStore),
+			Metrics: make(map[string]*daystore.DayStore),
 			Labels:  make(map[string]string),
 		}
 		srcInfo = InfoType{
-			Metrics: make(map[string]*store.TimeStore),
+			Metrics: make(map[string]*daystore.DayStore),
 			Labels:  make(map[string]string),
 		}
 		assert = assert.New(t)
@@ -148,57 +150,58 @@ func TestAggregateMetricsError(t *testing.T) {
 // TestAggregateMetricsNormal tests the normal flows of aggregateMetrics.
 func TestAggregateMetricsNormal(t *testing.T) {
 	var (
-		cluster    = newRealCluster(newTimeStore, time.Minute)
+		cluster    = newRealCluster(time.Minute)
 		targetInfo = InfoType{
-			Metrics: make(map[string]*store.TimeStore),
+			Metrics: make(map[string]*daystore.DayStore),
 			Labels:  make(map[string]string),
 		}
 		srcInfo1 = InfoType{
-			Metrics: make(map[string]*store.TimeStore),
+			Metrics: make(map[string]*daystore.DayStore),
 			Labels:  make(map[string]string),
 		}
 		srcInfo2 = InfoType{
-			Metrics: make(map[string]*store.TimeStore),
+			Metrics: make(map[string]*daystore.DayStore),
 			Labels:  make(map[string]string),
 		}
-		now    = time.Now().Round(time.Minute)
-		assert = assert.New(t)
+		now     = time.Now().Round(time.Minute)
+		assert  = assert.New(t)
+		require = require.New(t)
 	)
 
-	newTS := newTimeStore()
-	newTS.Put(store.TimePoint{
+	newTS := newDayStore()
+	newTS.Put(statstore.TimePoint{
 		Timestamp: now,
 		Value:     uint64(5000),
 	})
-	newTS.Put(store.TimePoint{
-		Timestamp: now.Add(time.Hour),
+	newTS.Put(statstore.TimePoint{
+		Timestamp: now.Add(20 * time.Minute),
 		Value:     uint64(3000),
 	})
-	newTS2 := newTimeStore()
-	newTS2.Put(store.TimePoint{
+	newTS2 := newDayStore()
+	newTS2.Put(statstore.TimePoint{
 		Timestamp: now,
 		Value:     uint64(2000),
 	})
-	newTS2.Put(store.TimePoint{
-		Timestamp: now.Add(time.Hour),
+	newTS2.Put(statstore.TimePoint{
+		Timestamp: now.Add(20 * time.Minute),
 		Value:     uint64(3500),
 	})
-	newTS2.Put(store.TimePoint{
-		Timestamp: now.Add(2 * time.Hour),
+	newTS2.Put(statstore.TimePoint{
+		Timestamp: now.Add(40 * time.Minute),
 		Value:     uint64(9000),
 	})
 
-	srcInfo1.Metrics[memUsage] = &newTS
-	srcInfo2.Metrics[memUsage] = &newTS2
+	srcInfo1.Metrics[memUsage] = newTS
+	srcInfo2.Metrics[memUsage] = newTS2
 	sources := []*InfoType{&srcInfo1, &srcInfo2}
 
 	// Normal Invocation
 	cluster.aggregateMetrics(&targetInfo, sources)
 
 	assert.NotNil(targetInfo.Metrics[memUsage])
-	targetMemTS := *(targetInfo.Metrics[memUsage])
-	res := targetMemTS.Get(time.Time{}, time.Time{})
-	assert.Len(res, 3)
+	targetMemTS := targetInfo.Metrics[memUsage]
+	res := targetMemTS.Hour.Get(time.Time{}, time.Time{})
+	require.Len(res, 3)
 	assert.Equal(res[0].Value, uint64(9000))
 	assert.Equal(res[1].Value, uint64(6500))
 	assert.Equal(res[2].Value, uint64(7000))
