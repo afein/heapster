@@ -206,55 +206,7 @@ func (ss *StatStore) Put(tp TimePoint) error {
 		return nil
 	}
 
-	// The new point is in the future, lastPut needs to be flushed to the StatStore.
-	ss.validCache = false
-
-	// Determine how many resolutions in the future the new point is at.
-	// The StatStore always represents values up until 1 resolution from lastPut.
-	// If the TimePoint is more than one resolutions in the future, the last bucket is -
-	// extended to be exactly one resolution behind the new lastPut timestamp.
-	numRes := uint8(0)
-	curr := ts
-	for curr.After(ss.lastPut.stamp) {
-		curr = curr.Add(-ss.resolution)
-		numRes++
-	}
-
-	// Create a new bucket if the buffer is empty
-	if ss.IsEmpty() {
-		ss.newBucket(numRes)
-		ss.resetLastPut(ts, tp.Value)
-		for ss.tpCount > ss.windowDuration {
-			ss.rewind()
-		}
-		return nil
-	}
-
-	lastEntry := ss.buffer.Front().Value.(tpBucket)
-	lastAvg := ss.lastPut.average
-
-	// Place lastPut in the latest bucket if the difference from its average
-	// is less than epsilon
-	if uint64(math.Abs(float64(lastEntry.value)-lastAvg)) < ss.epsilon {
-		lastEntry.count += numRes
-		ss.tpCount += numRes
-		if ss.lastPut.max > lastEntry.max {
-			lastEntry.max = ss.lastPut.max
-			lastEntry.maxIdx = lastEntry.count - 1
-		}
-		// update in list
-		ss.buffer.Front().Value = lastEntry
-	} else {
-		// Create a new bucket
-		ss.newBucket(numRes)
-	}
-
-	// Delete the earliest represented TimePoints if the window is full
-	for ss.tpCount > ss.windowDuration {
-		ss.rewind()
-	}
-
-	ss.resetLastPut(ts, tp.Value)
+	ss.Flush(ts, tp.Value)
 	return nil
 }
 
@@ -290,6 +242,64 @@ func (ss *StatStore) newBucket(numRes uint8) {
 	if ss.start.Equal(time.Time{}) {
 		ss.start = ss.lastPut.stamp
 	}
+}
+
+// Flush causes the lastPut struct to be flushed to the StatStore list.
+func (ss *StatStore) Flush(ts time.Time, val uint64) {
+	// The new point is in the future, lastPut needs to be flushed to the StatStore.
+	ss.validCache = false
+
+	// Determine how many resolutions in the future the new point is at.
+	// The StatStore always represents values up until 1 resolution from lastPut.
+	// If the TimePoint is more than one resolutions in the future, the last bucket is -
+	// extended to be exactly one resolution behind the new lastPut timestamp.
+	numRes := uint8(0)
+	curr := ts
+	for curr.After(ss.lastPut.stamp) {
+		curr = curr.Add(-ss.resolution)
+		numRes++
+	}
+
+	// Handle the case where we just want to flush lastPut with no new TimePoint
+	if ts.Equal(time.Time{}) {
+		numRes = 1
+	}
+
+	// Create a new bucket if the buffer is empty
+	if ss.IsEmpty() {
+		ss.newBucket(numRes)
+		ss.resetLastPut(ts, val)
+		for ss.tpCount > ss.windowDuration {
+			ss.rewind()
+		}
+		return
+	}
+
+	lastEntry := ss.buffer.Front().Value.(tpBucket)
+	lastAvg := ss.lastPut.average
+
+	// Place lastPut in the latest bucket if the difference from its average
+	// is less than epsilon
+	if uint64(math.Abs(float64(lastEntry.value)-lastAvg)) < ss.epsilon {
+		lastEntry.count += numRes
+		ss.tpCount += numRes
+		if ss.lastPut.max > lastEntry.max {
+			lastEntry.max = ss.lastPut.max
+			lastEntry.maxIdx = lastEntry.count - 1
+		}
+		// update in list
+		ss.buffer.Front().Value = lastEntry
+	} else {
+		// Create a new bucket
+		ss.newBucket(numRes)
+	}
+
+	// Delete the earliest represented TimePoints if the window is full
+	for ss.tpCount > ss.windowDuration {
+		ss.rewind()
+	}
+
+	ss.resetLastPut(ts, val)
 }
 
 // rewind deletes the oldest one resolution of data in the StatStore.
