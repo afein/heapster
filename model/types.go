@@ -74,6 +74,26 @@ const memWorking = "memory-working"
 const fsLimit = "fs-limit"
 const fsUsage = "fs-usage"
 
+// epsilon values for the underlying in-memory stores
+/*
+const cpuLimitEpsilon = 50
+const cpuUsageEpsilon = 50
+const memLimitEpsilon = 4194304   // 4 MB
+const memUsageEpsilon = 4194304   // 4 MB
+const memWorkingEpsilon = 4194304 // 4 MB
+const fsLimitEpsilon = 10485760   // 10 MB
+const fsUsageEpsilon = 10485760   // 10 MB
+*/
+const cpuLimitEpsilon = 100
+const cpuUsageEpsilon = 100
+const memLimitEpsilon = 100   // 4 MB
+const memUsageEpsilon = 100   // 4 MB
+const memWorkingEpsilon = 100 // 4 MB
+const fsLimitEpsilon = 100    // 10 MB
+const fsUsageEpsilon = 100    // 10 MB
+
+const defaultEpsilon = 100 // used for testing
+
 // Simple Request Types.
 type MetricRequest struct {
 	MetricName string

@@ -157,22 +157,27 @@ func TestAddMetricToMapExistingKey(t *testing.T) {
 
 	ts := *metrics[new_metric_name]
 	results := ts.Hour.Get(zeroTime, zeroTime)
-	require.Len(results, 1)
-	assert.Equal(results[0].Timestamp, stamp)
-	assert.Equal(results[0].Value, value)
+	require.Len(results, 0)
 
 	// Second Call: addMetricToMap for an existing key, same time
 	new_value := uint64(102)
 	assert.NoError(cluster.addMetricToMap(new_metric_name, stamp, new_value, metrics))
 
-	ts = *metrics[new_metric_name]
-	results = ts.Hour.Get(zeroTime, zeroTime)
-	require.Len(results, 1)
-	assert.Equal(results[0].Timestamp, stamp)
-	assert.Equal(results[0].Value, uint64(617283996))
+	require.Len(results, 0)
 
 	// Second Call: addMetricToMap for an existing key, new time
 	later_stamp := stamp.Add(20 * time.Minute)
+	assert.NoError(cluster.addMetricToMap(new_metric_name, later_stamp, new_value, metrics))
+
+	ts = *metrics[new_metric_name]
+	results = ts.Hour.Get(zeroTime, zeroTime)
+	require.Len(results, 20)
+	assert.Equal(results[0].Timestamp, stamp.Add(19*time.Minute))
+	assert.Equal(roundToEpsilon(results[0].Value, defaultEpsilon), roundToEpsilon(617283996, defaultEpsilon))
+	assert.Equal(results[19].Timestamp, stamp)
+	assert.Equal(roundToEpsilon(results[19].Value, defaultEpsilon), roundToEpsilon(617283996, defaultEpsilon))
+
+	// Second Call: addMetricToMap for an existing key, same time
 	assert.NoError(cluster.addMetricToMap(new_metric_name, later_stamp, new_value, metrics))
 
 	ts = *metrics[new_metric_name]
@@ -203,7 +208,7 @@ func TestAddMetricToMapNewKey(t *testing.T) {
 		cluster         = newRealCluster(time.Minute)
 		metrics         = make(map[string]*daystore.DayStore)
 		new_metric_name = "name_not_in_map"
-		stamp           = time.Now()
+		stamp           = time.Now().Round(cluster.resolution)
 		zeroTime        = time.Time{}
 		value           = uint64(1234567890)
 		assert          = assert.New(t)
@@ -212,14 +217,18 @@ func TestAddMetricToMapNewKey(t *testing.T) {
 
 	// First Call: Add a new metric to the map
 	assert.NoError(cluster.addMetricToMap(new_metric_name, stamp, value, metrics))
+
+	// Second Call: Add a second metric to the map on a later time. Flushes previous metric.
+	assert.NoError(cluster.addMetricToMap(new_metric_name, stamp.Add(time.Minute), value, metrics))
 	new_ts := *metrics[new_metric_name]
 	results := new_ts.Hour.Get(zeroTime, zeroTime)
 	require.Len(results, 1)
 	assert.Equal(results[0].Timestamp, stamp)
-	assert.Equal(results[0].Value, value)
+	assert.Equal(roundToEpsilon(results[0].Value, defaultEpsilon), roundToEpsilon(value, defaultEpsilon))
 
 	// Second Call: addMetricToMap for a new key, cause TimeStore failure
-	assert.Error(cluster.addMetricToMap("other_metric", zeroTime, value, metrics))
+	assert.NoError(cluster.addMetricToMap("other_metric", stamp, value, metrics))
+	assert.Error(cluster.addMetricToMap("other_metric", stamp.Add(-time.Minute), value, metrics))
 }
 
 // TestParseMetricError tests the error flows of ParseMetric
@@ -248,6 +257,15 @@ func TestParseMetricError(t *testing.T) {
 	assert.Equal(stamp, time.Time{})
 }
 
+// roundToEpsilon is a helper function that rounds a value based on a given epsilon.
+func roundToEpsilon(value, epsilon uint64) uint64 {
+	res := (value / epsilon) * epsilon
+	if value%epsilon != 0 {
+		res += epsilon
+	}
+	return res
+}
+
 // TestParseMetricNormal tests the normal flow of ParseMetric
 func TestParseMetricNormal(t *testing.T) {
 	var (
@@ -257,6 +275,7 @@ func TestParseMetricNormal(t *testing.T) {
 		context    = make(map[string]*statstore.TimePoint)
 		normal_cme = cmeFactory()
 		other_cme  = cmeFactory()
+		flush_cme  = cmeFactory()
 		assert     = assert.New(t)
 		require    = require.New(t)
 	)
@@ -267,58 +286,85 @@ func TestParseMetricNormal(t *testing.T) {
 	other_cme.Stats.Cpu.Usage.Total = uint64(360000001000) // 2 stable over 3 minutes in NS
 	other_stamp := other_cme.Stats.Timestamp.Truncate(time.Minute)
 
-	// Normal Invocation with a regular CME, passed twice
+	// Create a CME that will flush other_cme to the store
+	flush_cme.Stats.Timestamp = normal_stamp.Add(4 * time.Minute)
+	flush_cme.Stats.Cpu.Usage.Total = uint64(760000001000)
+	flush_stamp := flush_cme.Stats.Timestamp.Truncate(time.Minute)
+
+	// Three Normal Invocations
 	stamp, err := cluster.parseMetric(normal_cme, metrics, context)
 	assert.NoError(err)
 	assert.Equal(stamp, normal_stamp)
 	stamp, err = cluster.parseMetric(other_cme, metrics, context)
 	assert.NoError(err)
 	assert.Equal(stamp, other_stamp)
+	stamp, err = cluster.parseMetric(flush_cme, metrics, context)
+	assert.NoError(err)
+	assert.Equal(stamp, flush_stamp)
 	for key, ts := range metrics {
 		actual_ts := *ts
 		pointSlice := actual_ts.Hour.Get(zeroTime, zeroTime)
 		require.True(len(pointSlice) >= 1)
-		metric := pointSlice[0]
 		switch key {
 		case cpuLimit:
-			require.Len(pointSlice, 2)
-			assert.Equal(metric.Timestamp, other_stamp)
-			assert.Equal(metric.Value, other_cme.Spec.Cpu.Limit*1000/1024)
-			metric = pointSlice[1]
-			assert.Equal(metric.Timestamp, normal_stamp)
-			assert.Equal(metric.Value, normal_cme.Spec.Cpu.Limit*1000/1024)
+			require.Len(pointSlice, 4)
+			assert.Equal(pointSlice[0].Timestamp, other_stamp)
+			assert.Equal(pointSlice[0].Value, other_cme.Spec.Cpu.Limit*1000/1024)
+			for i := 1; i <= 3; i++ {
+				assert.Equal(pointSlice[i].Timestamp, normal_stamp.Add(time.Duration(3-i)*time.Minute))
+				assert.Equal(pointSlice[i].Value, normal_cme.Spec.Cpu.Limit*1000/1024)
+			}
 		case memLimit:
-			require.Len(pointSlice, 2)
-			assert.Equal(metric.Timestamp, other_stamp)
-			assert.Equal(metric.Value, other_cme.Spec.Memory.Limit)
-			metric = pointSlice[1]
-			assert.Equal(metric.Timestamp, normal_stamp)
-			assert.Equal(metric.Value, normal_cme.Spec.Memory.Limit)
+			require.Len(pointSlice, 4)
+			assert.Equal(pointSlice[0].Timestamp, other_stamp)
+			actualML := roundToEpsilon(pointSlice[0].Value, memLimitEpsilon)
+			expectedML := roundToEpsilon(other_cme.Spec.Memory.Limit, memLimitEpsilon)
+			assert.Equal(actualML, expectedML)
+			for i := 1; i <= 3; i++ {
+				assert.Equal(pointSlice[i].Timestamp, normal_stamp.Add(time.Duration(3-i)*time.Minute))
+				actualML = roundToEpsilon(pointSlice[i].Value, memLimitEpsilon)
+				expectedML = roundToEpsilon(normal_cme.Spec.Memory.Limit, memLimitEpsilon)
+				assert.Equal(actualML, expectedML)
+			}
 		case cpuUsage:
 			require.Len(pointSlice, 1)
-			assert.Equal(metric.Timestamp, other_stamp)
-			assert.Equal(metric.Value, 2000) //Two full cores
+			assert.Equal(pointSlice[0].Timestamp, other_stamp)
+			assert.Equal(pointSlice[0].Value, 2000) //Two full cores
 		case memUsage:
-			require.Len(pointSlice, 2)
-			assert.Equal(metric.Timestamp, other_stamp)
-			assert.Equal(metric.Value, other_cme.Stats.Memory.Usage)
-			metric = pointSlice[1]
-			assert.Equal(metric.Timestamp, normal_stamp)
-			assert.Equal(metric.Value, normal_cme.Stats.Memory.Usage)
+			require.Len(pointSlice, 4)
+			assert.Equal(pointSlice[0].Timestamp, other_stamp)
+			actualMU := roundToEpsilon(pointSlice[0].Value, memUsageEpsilon)
+			expectedMU := roundToEpsilon(other_cme.Stats.Memory.Usage, memUsageEpsilon)
+			assert.Equal(actualMU, expectedMU)
+			for i := 1; i <= 3; i++ {
+				assert.Equal(pointSlice[i].Timestamp, normal_stamp.Add(time.Duration(3-i)*time.Minute))
+				actualMU := roundToEpsilon(pointSlice[i].Value, memUsageEpsilon)
+				expectedMU := roundToEpsilon(normal_cme.Stats.Memory.Usage, memUsageEpsilon)
+				assert.Equal(actualMU, expectedMU)
+			}
 		case memWorking:
-			require.Len(pointSlice, 2)
-			assert.Equal(metric.Timestamp, other_stamp)
-			assert.Equal(metric.Value, other_cme.Stats.Memory.WorkingSet)
-			metric = pointSlice[1]
-			assert.Equal(metric.Timestamp, normal_stamp)
-			assert.Equal(metric.Value, normal_cme.Stats.Memory.WorkingSet)
+			require.Len(pointSlice, 4)
+			assert.Equal(pointSlice[0].Timestamp, other_stamp)
+			actualMWS := roundToEpsilon(pointSlice[0].Value, memWorkingEpsilon)
+			expectedMWS := roundToEpsilon(other_cme.Stats.Memory.WorkingSet, memWorkingEpsilon)
+			assert.Equal(actualMWS, expectedMWS)
+			for i := 1; i <= 3; i++ {
+				assert.Equal(pointSlice[i].Timestamp, normal_stamp.Add(time.Duration(3-i)*time.Minute))
+				actualMWS = roundToEpsilon(pointSlice[i].Value, memWorkingEpsilon)
+				expectedMWS = roundToEpsilon(normal_cme.Stats.Memory.WorkingSet, memWorkingEpsilon)
+				assert.Equal(actualMWS, expectedMWS)
+			}
 		default:
 			// Filesystem or error
-			require.Len(pointSlice, 2)
+			require.Len(pointSlice, 4)
 			if strings.Contains(key, "limit") {
-				assert.Equal(metric.Value, other_cme.Stats.Filesystem[0].Limit)
+				actualFSL := roundToEpsilon(pointSlice[0].Value, fsLimitEpsilon)
+				expectedFSL := roundToEpsilon(other_cme.Stats.Filesystem[0].Limit, fsLimitEpsilon)
+				assert.Equal(actualFSL, expectedFSL)
 			} else if strings.Contains(key, "usage") {
-				assert.Equal(metric.Value, other_cme.Stats.Filesystem[0].Usage)
+				actualFSU := roundToEpsilon(pointSlice[0].Value, fsUsageEpsilon)
+				expectedFSU := roundToEpsilon(other_cme.Stats.Filesystem[0].Usage, fsUsageEpsilon)
+				assert.Equal(actualFSU, expectedFSU)
 			} else {
 				assert.True(false, "Unknown key in resulting metrics slice")
 			}
@@ -357,6 +403,7 @@ func TestUpdateInfoTypeNormal(t *testing.T) {
 		new_infotype = newInfoType(nil, nil, nil)
 		zeroTime     = time.Time{}
 		assert       = assert.New(t)
+		require      = require.New(t)
 	)
 
 	// Invocation with a ContainerElement argument with no CMEs
@@ -370,29 +417,31 @@ func TestUpdateInfoTypeNormal(t *testing.T) {
 	assert.NoError(err)
 	assert.NotEmpty(new_infotype.Metrics)
 	assert.NotEqual(stamp, time.Time{})
-	assert.Len(new_infotype.Metrics, 6) // 6 stats in total - no CPU Usage yet
+	require.Len(new_infotype.Metrics, 6) // 6 stats in total - no CPU Usage yet
 	for _, metricStore := range new_infotype.Metrics {
 		metricSlice := (*metricStore).Hour.Get(zeroTime, zeroTime)
-		assert.Len(metricSlice, 1) // 1 Metric per stat
+		assert.Len(metricSlice, 0) // No values in the store yet, only 1 resolution was stored
 	}
 
 	// Invocation with an empty InfoType argument
 	// The new ContainerElement adds one TimePoint to each of 7 Metrics
 	newer_cme := cmeFactory()
 	newer_cme.Stats.Timestamp = new_cme.Stats.Timestamp.Add(10 * time.Minute)
-	newer_cme.Stats.Cpu.Usage.Total = new_cme.Stats.Cpu.Usage.Total + uint64(3600000000)
+	newer_cme.Stats.Cpu.Usage.Total = new_cme.Stats.Cpu.Usage.Total + uint64(600000000000)
 	new_ce := containerElementFactory([]*cache.ContainerMetricElement{newer_cme})
 	stamp, err = cluster.updateInfoType(&new_infotype, new_ce)
 	assert.NoError(err)
 	assert.Empty(new_infotype.Labels)
 	assert.NotEqual(stamp, time.Time{})
-	assert.Len(new_infotype.Metrics, 7) // 7 stats in total
+	require.Len(new_infotype.Metrics, 7) // 7 stats in total
 	for key, metricStore := range new_infotype.Metrics {
 		metricSlice := (*metricStore).Hour.Get(zeroTime, zeroTime)
 		if key == cpuUsage {
-			assert.Len(metricSlice, 1) // cpuUsage has n-1 values.
+			// cpuUsage has 1 value at the newer_cme timestamp
+			// That value has not been flushed yet into the DayStore
+			assert.Len(metricSlice, 0)
 		} else {
-			assert.Len(metricSlice, 2) // 2 Metrics per stat
+			assert.Len(metricSlice, 10) // All other metrics have 10 values, one per elapsed minute
 		}
 	}
 
@@ -400,22 +449,26 @@ func TestUpdateInfoTypeNormal(t *testing.T) {
 	// The new ContainerElement adds two TimePoints to each Metric
 	newer_cme2 := cmeFactory()
 	newer_cme2.Stats.Timestamp = newer_cme.Stats.Timestamp.Add(10 * time.Minute)
-	newer_cme2.Stats.Cpu.Usage.Total = newer_cme.Stats.Cpu.Usage.Total + uint64(3600000000)
+	newer_cme2.Stats.Cpu.Usage.Total = newer_cme.Stats.Cpu.Usage.Total + uint64(3600000000000)
 	newer_cme3 := cmeFactory()
 	newer_cme3.Stats.Timestamp = newer_cme2.Stats.Timestamp.Add(10 * time.Minute)
-	newer_cme3.Stats.Cpu.Usage.Total = newer_cme2.Stats.Cpu.Usage.Total + uint64(360000000)
+	newer_cme3.Stats.Cpu.Usage.Total = newer_cme2.Stats.Cpu.Usage.Total + uint64(600000000000)
 	new_ce = containerElementFactory([]*cache.ContainerMetricElement{newer_cme3, newer_cme2})
 	stamp, err = cluster.updateInfoType(&new_infotype, new_ce)
 	assert.NoError(err)
 	assert.Empty(new_infotype.Labels)
 	assert.NotEqual(stamp, time.Time{})
-	assert.Len(new_infotype.Metrics, 7) // 7 stats total
+	require.Len(new_infotype.Metrics, 7) // 7 stats total
 	for key, metricStore := range new_infotype.Metrics {
 		metricSlice := (*metricStore).Hour.Get(zeroTime, zeroTime)
 		if key == cpuUsage {
-			assert.Len(metricSlice, 3) // cpuUsage consists of n-1 values.
+			require.Len(metricSlice, 20) // cpuUsage consists of 1+10+9 values.
+			assert.Equal(metricSlice[0].Value, 6000)
+			assert.Equal(metricSlice[9].Value, 6000)
+			assert.Equal(metricSlice[10].Value, 1000)
+			assert.Equal(metricSlice[19].Value, 1000)
 		} else {
-			assert.Len(metricSlice, 4) // 4 Metrics per stat
+			assert.Len(metricSlice, 30) // All other metrics have 30 values, one per minute
 		}
 	}
 }
@@ -640,10 +693,12 @@ func cmeFactory() *cache.ContainerMetricElement {
 	containerStats.Memory.Usage = uint64(5000)
 	containerStats.Memory.WorkingSet = uint64(602)
 
-	// Standardize the device name
+	// Standardize the device name, usage and limit
 	new_fs := cadvisor.FsStats{}
 	f.Fuzz(&new_fs)
 	new_fs.Device = "/dev/device1"
+	new_fs.Usage = 50000
+	new_fs.Limit = 100000
 	containerStats.Filesystem = []cadvisor.FsStats{new_fs}
 
 	return &cache.ContainerMetricElement{

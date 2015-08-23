@@ -101,9 +101,11 @@ func (ds *DayStore) Put(tp statstore.TimePoint) error {
 		return err
 	}
 
-	ds.validMax = false
+	if tp.Value > ds.cachedMax {
+		ds.validMax = false
+	}
 
-	// Check if this is the first TimePoint ever, in which case flush in one hour.
+	// Check if this is the first TimePoint ever, in which case flush in one hour from now.
 	if ds.lastFlush.Equal(time.Time{}) {
 		ds.lastFlush = tp.Timestamp
 		return nil

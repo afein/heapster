@@ -151,6 +151,7 @@ func (rc *realCluster) addPod(pod_name string, pod_uid string, namespace *Namesp
 func (rc *realCluster) updateInfoType(info *InfoType, ce *cache.ContainerElement) (time.Time, error) {
 	var latest_time time.Time
 	var latest_creation time.Time
+	var err error
 
 	if ce == nil {
 		return latest_time, fmt.Errorf("cannot update InfoType from nil ContainerElement")
@@ -160,6 +161,7 @@ func (rc *realCluster) updateInfoType(info *InfoType, ce *cache.ContainerElement
 	}
 
 	// call parseMetric in a time-ascending order
+	parsed := 0
 	for i := len(ce.Metrics) - 1; i >= 0; i-- {
 		cme := ce.Metrics[i]
 		if cme == nil {
@@ -171,9 +173,14 @@ func (rc *realCluster) updateInfoType(info *InfoType, ce *cache.ContainerElement
 			glog.Warningf("failed to parse ContainerMetricElement: %s", err)
 			continue
 		}
+		parsed += 1
 		latest_time = latestTimestamp(latest_time, stamp)
 	}
 	info.Uptime = latest_time.Sub(latest_creation)
+	// Return the latest error if we were unable to process any CME completely
+	if parsed == 0 {
+		return latest_time, err
+	}
 	return latest_time, nil
 }
 
@@ -193,7 +200,7 @@ func (rc *realCluster) addMetricToMap(metric string, timestamp time.Time, value 
 		}
 	} else {
 		// TODO(afein): configure epsilon
-		new_ts := daystore.NewDayStore(100, rc.resolution)
+		new_ts := daystore.NewDayStore(defaultEpsilon, rc.resolution)
 		err := new_ts.Put(point)
 		if err != nil {
 			return fmt.Errorf("failed to add metric to DayStore: %s", err)
