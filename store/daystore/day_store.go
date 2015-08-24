@@ -79,7 +79,7 @@ func NewDayStore(epsilon uint64, resolution time.Duration) *DayStore {
 	// Calculate how many resolutions correspond to an hour
 	hourNS := time.Hour.Nanoseconds()
 	resNS := resolution.Nanoseconds()
-	intervals := uint8(hourNS / resNS)
+	intervals := uint16(hourNS / resNS)
 	if hourNS%resNS != 0 {
 		intervals++
 	}
@@ -116,7 +116,7 @@ func (ds *DayStore) Put(tp statstore.TimePoint) error {
 		return nil
 	}
 
-	// flush the current hour to the window.
+	// create an hourEntry for the existing hour
 	ds.validAvgPct = false
 	avg, _ := ds.Hour.Average()
 	max, _ := ds.Hour.Max()
@@ -126,11 +126,20 @@ func (ds *DayStore) Put(tp statstore.TimePoint) error {
 		max:         max,
 		ninetyFifth: nf,
 	}
-	if ds.size < 24 {
-		ds.size += 1
+
+	// check if the TimePoint is multiple hours in the future
+	// insert the hourEntry the appropriate amount of hours
+	distance := tp.Timestamp.Sub(ds.lastFlush)
+	nextflush := tp.Timestamp
+	for distance.Nanoseconds() >= time.Hour.Nanoseconds() {
+		ds.lastFlush = nextflush
+		nextflush = ds.lastFlush.Add(time.Hour)
+		if ds.size < 24 {
+			ds.size += 1
+		}
+		ds.window.PushBack(newEntry)
+		distance = time.Time{}.Add(distance).Add(-time.Hour).Sub(time.Time{})
 	}
-	ds.window.PushBack(newEntry)
-	ds.lastFlush = tp.Timestamp
 	return nil
 }
 
