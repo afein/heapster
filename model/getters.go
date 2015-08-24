@@ -422,11 +422,15 @@ func (rc *realCluster) GetAvailableMetrics() []string {
 	return res
 }
 
+func (rc *realCluster) uptime(infotype *InfoType) time.Duration {
+	return rc.timestamp.Sub(infotype.Creation)
+}
+
 // getClusterStats extracts the derived stats and uptime for the Cluster entity.
 func (rc *realCluster) GetClusterStats() (map[string]StatBundle, time.Duration, error) {
 	rc.lock.RLock()
 	defer rc.lock.RUnlock()
-	return getStats(rc.InfoType), rc.InfoType.Uptime, nil
+	return getStats(rc.InfoType), rc.uptime(&rc.InfoType), nil
 }
 
 // getNodeStats extracts the derived stats and uptime for a Node entity.
@@ -438,7 +442,7 @@ func (rc *realCluster) GetNodeStats(req NodeRequest) (map[string]StatBundle, tim
 		return nil, time.Duration(0), errInvalidNode
 	}
 
-	return getStats(node.InfoType), node.InfoType.Uptime, nil
+	return getStats(node.InfoType), rc.uptime(&node.InfoType), nil
 }
 
 // getNamespaceStats extracts the derived stats and uptime for a Namespace entity.
@@ -450,7 +454,7 @@ func (rc *realCluster) GetNamespaceStats(req NamespaceRequest) (map[string]StatB
 		return nil, time.Duration(0), errNoSuchNamespace
 	}
 
-	return getStats(ns.InfoType), ns.InfoType.Uptime, nil
+	return getStats(ns.InfoType), rc.uptime(&ns.InfoType), nil
 }
 
 // getPodStats extracts the derived stats and uptime for a Pod entity.
@@ -467,7 +471,7 @@ func (rc *realCluster) GetPodStats(req PodRequest) (map[string]StatBundle, time.
 		return nil, time.Duration(0), errNoSuchPod
 	}
 
-	return getStats(pod.InfoType), pod.InfoType.Uptime, nil
+	return getStats(pod.InfoType), rc.uptime(&pod.InfoType), nil
 }
 
 // getPodContainerStats extracts the derived stats and uptime for a Pod Container entity.
@@ -489,7 +493,7 @@ func (rc *realCluster) GetPodContainerStats(req PodContainerRequest) (map[string
 		return nil, time.Duration(0), errNoSuchContainer
 	}
 
-	return getStats(ctr.InfoType), ctr.InfoType.Uptime, nil
+	return getStats(ctr.InfoType), rc.uptime(&ctr.InfoType), nil
 }
 
 // getFreeContainerStats extracts the derived stats and uptime for a Pod Container entity.
@@ -506,5 +510,5 @@ func (rc *realCluster) GetFreeContainerStats(req FreeContainerRequest) (map[stri
 		return nil, time.Duration(0), errNoSuchContainer
 	}
 
-	return getStats(ctr.InfoType), ctr.InfoType.Uptime, nil
+	return getStats(ctr.InfoType), rc.uptime(&ctr.InfoType), nil
 }

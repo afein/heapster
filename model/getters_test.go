@@ -785,11 +785,16 @@ func TestGetPodStats(t *testing.T) {
 		NamespaceName: "test",
 		PodName:       "pod1",
 	})
-	assert.Len(res, 6)
+	assert.Len(res, 7)
 	assert.Equal(res[memUsage].Minute.Average, res[memUsage].Minute.Max)
 	assert.Equal(res[memUsage].Minute.Average, res[memUsage].Minute.Percentile)
 	assert.NotEqual(res[memUsage].Minute.Average, uint64(0))
 	assert.NotEqual(res[memUsage].Hour.Average, uint64(0))
+
+	assert.Equal(res[cpuUsage].Minute.Average, res[memUsage].Minute.Max)
+	assert.Equal(res[cpuUsage].Minute.Average, res[memUsage].Minute.Percentile)
+	assert.NotEqual(res[cpuUsage].Minute.Average, uint64(0))
+	assert.NotEqual(res[cpuUsage].Hour.Average, uint64(0))
 	assert.NoError(err)
 }
 
@@ -878,7 +883,7 @@ func TestGetFreeContainerStats(t *testing.T) {
 		NodeName:      "hostname2",
 		ContainerName: "free_container1",
 	})
-	assert.Len(res, 6)
+	assert.Len(res, 7)
 	assert.Equal(res[memUsage].Minute.Average, res[memUsage].Minute.Max)
 	assert.Equal(res[memUsage].Minute.Average, res[memUsage].Minute.Percentile)
 	assert.NotEqual(res[memUsage].Minute.Average, uint64(0))

@@ -61,10 +61,10 @@ func TestLast(t *testing.T) {
 		Value:     uint64(100000),
 	}))
 
-	// Invocation with all values in the same resolution - no result
 	last, err = store.Last()
-	assert.Error(err)
-	assert.Equal(last, TimePoint{})
+	assert.NoError(err)
+	assert.Equal(last.Timestamp, now)
+	assert.Equal(last.Value, uint64(10029))
 
 	// Put one value from the next minute
 	assert.NoError(store.Put(TimePoint{
@@ -72,10 +72,11 @@ func TestLast(t *testing.T) {
 		Value:     uint64(92),
 	}))
 
+	// Invocation where Last is a "fake" point added because of a missed resolution.
 	last, err = store.Last()
 	assert.NoError(err)
-	assert.Equal(last.Timestamp, now)
-	assert.Equal(last.Value, uint64(10030)) // closest bucket to 10029
+	assert.Equal(last.Timestamp, now.Add(time.Minute))
+	assert.Equal(last.Value, uint64(92))
 
 	// Put one value from two more minutes later
 	assert.NoError(store.Put(TimePoint{
@@ -83,11 +84,11 @@ func TestLast(t *testing.T) {
 		Value:     uint64(10000),
 	}))
 
-	// Invocation where Last is a "fake" point added because of a missed resolution.
 	last, err = store.Last()
 	assert.NoError(err)
-	assert.Equal(last.Timestamp, now.Add(2*time.Minute))
-	assert.Equal(last.Value, uint64(100)) // closest bucket to 92
+	assert.Equal(last.Timestamp, now.Add(3*time.Minute))
+	assert.Equal(last.Value, uint64(10000))
+
 }
 
 // TestMax tests all flows of the Max method.
@@ -130,7 +131,7 @@ func TestMax(t *testing.T) {
 	// Invocation where the previous minute is now accessible
 	max, err = store.Max()
 	assert.NoError(err)
-	assert.Equal(max, uint64(88))
+	assert.Equal(max, uint64(100))
 
 	// Put 1 Point in the next minute.
 	assert.NoError(store.Put(TimePoint{
@@ -161,7 +162,7 @@ func TestMax(t *testing.T) {
 	// Invocation with three minutes in three different buckets
 	max, err = store.Max()
 	assert.NoError(err)
-	assert.Equal(max, uint64(199))
+	assert.Equal(max, uint64(200))
 
 	// Put one value from the next minute
 	assert.NoError(store.Put(TimePoint{
@@ -172,12 +173,12 @@ func TestMax(t *testing.T) {
 	// Invocation with four minutes
 	max, err = store.Max()
 	assert.NoError(err)
-	assert.Equal(max, uint64(511))
+	assert.Equal(max, uint64(550))
 
 	// Call again to assert validity of the cache
 	max, err = store.Max()
 	assert.NoError(err)
-	assert.Equal(max, uint64(511))
+	assert.Equal(max, uint64(550))
 }
 
 // TestGet tests all flows of the Get method.

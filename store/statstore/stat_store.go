@@ -270,7 +270,8 @@ func (ss *StatStore) flush(ts time.Time, val uint64) {
 		return
 	}
 
-	lastEntry := ss.buffer.Front().Value.(tpBucket)
+	lastElem := ss.buffer.Front()
+	lastEntry := lastElem.Value.(tpBucket)
 	lastAvg := ss.lastPut.average
 
 	// Place lastPut in the latest bucket if the difference from its average
@@ -284,7 +285,7 @@ func (ss *StatStore) flush(ts time.Time, val uint64) {
 		}
 
 		// update in list
-		ss.buffer.Front().Value = lastEntry
+		lastElem.Value = lastEntry
 	} else {
 		// Create a new bucket
 		ss.newBucket(numRes)
@@ -387,28 +388,22 @@ func (ss *StatStore) Get(start, end time.Time) []TimePoint {
 
 }
 
-// Last returns the latest TimePoint represented in the StatStore,
-// or an error if the StatStore is empty.
-// Note: the lastPut field is not used, as we are not confident of its final value.
+// Last returns the latest TimePoint as held by lastPut,
+// Last returns an error if no Put operations have been performed on the StatStore.
 func (ss *StatStore) Last() (TimePoint, error) {
 	ss.RLock()
 	defer ss.RUnlock()
 
-	// Obtain latest tpBucket
-	lastElem := ss.buffer.Front()
-	if lastElem == nil {
+	if ss.lastPut.stamp.Equal(time.Time{}) {
 		return TimePoint{}, fmt.Errorf("the StatStore is empty")
 	}
 
-	lastEntry := lastElem.Value.(tpBucket)
-
-	// create the latest TimePoint from lastEntry
-	lastTP := TimePoint{
-		Timestamp: ss.start.Add(time.Duration(ss.tpCount-1) * ss.resolution),
-		Value:     lastEntry.value,
+	tp := TimePoint{
+		Timestamp: ss.lastPut.stamp,
+		Value:     uint64(ss.lastPut.average),
 	}
 
-	return lastTP, nil
+	return tp, nil
 }
 
 // fillCache caches the average, max and percentiles of the StatStore.
@@ -424,9 +419,9 @@ func (ss *StatStore) fillCache() {
 		// Calculate the weighted sum of all tpBuckets
 		sum += uint64(entry.count) * entry.value
 
-		// Compare the bucket max with the total max
-		if entry.max > curMax {
-			curMax = entry.max
+		// Compare the bucket value with the current max
+		if entry.value > curMax {
+			curMax = entry.value
 		}
 
 		// Create a slice of values to generate percentiles

@@ -15,7 +15,6 @@
 package model
 
 import (
-	"fmt"
 	"math/rand"
 	"strings"
 	"testing"
@@ -34,7 +33,7 @@ import (
 )
 
 func newDayStore() *daystore.DayStore {
-	return daystore.NewDayStore(100, time.Minute)
+	return daystore.NewDayStore(defaultEpsilon, time.Minute)
 }
 
 // TestNewCluster tests the sanity of NewCluster
@@ -192,9 +191,7 @@ func TestAddMetricToMapExistingKey(t *testing.T) {
 
 	// Third Call: addMetricToMap for an existing key in the distant future
 	stamp = later_stamp
-	fmt.Println(stamp)
 	later_stamp = stamp.Add(14 * time.Hour)
-	fmt.Println(later_stamp)
 	new_value = uint64(1234567890)
 	assert.NoError(cluster.addMetricToMap(new_metric_name, later_stamp, new_value, metrics))
 
@@ -607,9 +604,11 @@ func TestUpdate(t *testing.T) {
 	assert.NotNil(cluster.Metrics[memWorking])
 	mem_work_ts := *(cluster.Metrics[memWorking])
 	actual := mem_work_ts.Hour.Get(zeroTime, zeroTime)
-	require.Len(actual, 2)
-	// Datapoint present in both nodes, added up to 1024
-	assert.Equal(actual[1].Value, uint64(1204))
+	require.Len(actual, 10)
+	// Datapoint present in both nodes,
+	host2 := roundToEpsilon(memWorkingEpsilon, 1062)
+	host3 := roundToEpsilon(memWorkingEpsilon, 602)
+	assert.Equal(actual[1].Value, host2+host3)
 	// Datapoint present in only one node
 	assert.Equal(actual[0].Value, uint64(602))
 
@@ -818,12 +817,14 @@ func cacheFactory() cache.Cache {
 	// Generate a flush CME for cme_1 and cme_2
 	cme_2flush := cmeFactory()
 	cme_2flush.Stats.Timestamp = cme_1.Stats.Timestamp.Add(time.Minute)
-	cme_2flush.Stats.Cpu.Usage.Total = cme_1.Stats.Cpu.Usage.Total + uint64(360000000000)
 
 	// Genete Machine CMEs - same timestamp for aggregation
 	cme_3 := cmeFactory()
 	cme_4 := cmeFactory()
+	cme_3.Stats.Timestamp = cme_1.Stats.Timestamp.Add(2 * time.Minute)
 	cme_4.Stats.Timestamp = cme_3.Stats.Timestamp
+	cme_3.Stats.Memory.WorkingSet = 602
+	cme_4.Stats.Memory.WorkingSet = 1062
 
 	// Generate a flush CME for cme_3 and cme_4
 	cme_4flush := cmeFactory()

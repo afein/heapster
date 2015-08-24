@@ -215,13 +215,13 @@ func (rc *realCluster) aggregateMetrics(target *InfoType, sources []*InfoType) e
 	}
 
 	// Set the uptime to the longest one
-	longestUptime := time.Duration(0)
+	earliestCreation := time.Now().Add(240000 * time.Hour)
 	for _, info := range sources {
-		if info.Uptime.Nanoseconds() > longestUptime.Nanoseconds() {
-			longestUptime = info.Uptime
+		if info.Creation.Before(earliestCreation) {
+			earliestCreation = info.Creation
 		}
 	}
-	target.Uptime = longestUptime
+	target.Creation = earliestCreation
 
 	return nil
 }

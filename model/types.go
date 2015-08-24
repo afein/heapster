@@ -75,24 +75,14 @@ const fsLimit = "fs-limit"
 const fsUsage = "fs-usage"
 
 // epsilon values for the underlying in-memory stores
-/*
-const cpuLimitEpsilon = 20
-const cpuUsageEpsilon = 20
+const cpuLimitEpsilon = 10
+const cpuUsageEpsilon = 10
 const memLimitEpsilon = 4194304   // 4 MB
 const memUsageEpsilon = 4194304   // 4 MB
 const memWorkingEpsilon = 4194304 // 4 MB
 const fsLimitEpsilon = 10485760   // 10 MB
 const fsUsageEpsilon = 10485760   // 10 MB
-*/
-const cpuLimitEpsilon = 100
-const cpuUsageEpsilon = 100
-const memLimitEpsilon = 100   // 4 MB
-const memUsageEpsilon = 100   // 4 MB
-const memWorkingEpsilon = 100 // 4 MB
-const fsLimitEpsilon = 100    // 10 MB
-const fsUsageEpsilon = 100    // 10 MB
-
-const defaultEpsilon = 100 // used for testing
+const defaultEpsilon = 100        // used for testing
 
 // Simple Request Types.
 type MetricRequest struct {
@@ -190,9 +180,9 @@ type EntityListEntry struct {
 
 // Internal Types
 type InfoType struct {
-	Uptime  time.Duration
-	Metrics map[string]*daystore.DayStore // key: Metric Name
-	Labels  map[string]string             // key: Label
+	Creation time.Time
+	Metrics  map[string]*daystore.DayStore // key: Metric Name
+	Labels   map[string]string             // key: Label
 	// Context retains instantaneous state for a specific InfoType.
 	// Currently used for calculating instantaneous metrics from cumulative counterparts.
 	Context map[string]*statstore.TimePoint // key: metric name

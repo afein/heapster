@@ -44,10 +44,10 @@ func newInfoType(metrics map[string]*daystore.DayStore, labels map[string]string
 		context = make(map[string]*statstore.TimePoint)
 	}
 	return InfoType{
-		Uptime:  time.Duration(0),
-		Metrics: metrics,
-		Labels:  labels,
-		Context: context,
+		Creation: time.Time{},
+		Metrics:  metrics,
+		Labels:   labels,
+		Context:  context,
 	}
 }
 

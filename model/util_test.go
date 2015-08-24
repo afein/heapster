@@ -323,9 +323,9 @@ func TestGetStats(t *testing.T) {
 
 	res := getStats(info)
 	assert.Len(res, 2)
-	assert.Equal(res[cpuLimit].Minute.Average, uint64(15000))
-	assert.Equal(res[cpuLimit].Minute.Max, uint64(15000))
-	assert.Equal(res[cpuLimit].Minute.Percentile, uint64(15000))
+	assert.Equal(res[cpuLimit].Minute.Average, uint64(300000))
+	assert.Equal(res[cpuLimit].Minute.Max, uint64(300000))
+	assert.Equal(res[cpuLimit].Minute.Percentile, uint64(300000))
 
 	assert.Equal(res[cpuLimit].Hour.Average, uint64(1133))
 	assert.Equal(res[cpuLimit].Hour.Max, uint64(15000))

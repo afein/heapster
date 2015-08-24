@@ -167,16 +167,19 @@ func (rc *realCluster) updateInfoType(info *InfoType, ce *cache.ContainerElement
 		if cme == nil {
 			continue
 		}
-		latest_creation = latestTimestamp(latest_creation, cme.Spec.CreationTime)
 		stamp, err := rc.parseMetric(cme, info.Metrics, info.Context)
 		if err != nil {
 			glog.Warningf("failed to parse ContainerMetricElement: %s", err)
 			continue
 		}
 		parsed += 1
+		latest_creation = latestTimestamp(latest_creation, cme.Spec.CreationTime)
 		latest_time = latestTimestamp(latest_time, stamp)
 	}
-	info.Uptime = latest_time.Sub(latest_creation)
+
+	if info.Creation.Equal(time.Time{}) {
+		info.Creation = latest_creation
+	}
 	// Return the latest error if we were unable to process any CME completely
 	if parsed == 0 {
 		return latest_time, err
