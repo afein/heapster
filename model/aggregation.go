@@ -208,8 +208,9 @@ func (rc *realCluster) aggregateMetrics(target *InfoType, sources []*InfoType) e
 			newDS := daystore.NewDayStore(100, rc.resolution)
 			target.Metrics[key] = newDS
 		}
-		for _, tp := range tpSlice {
-			(*target.Metrics[key]).Put(tp)
+		// Put the added TimeSeries in the corresponding DayStore, in time-ascending order
+		for i := len(tpSlice) - 1; i >= 0; i-- {
+			(*target.Metrics[key]).Put(tpSlice[i])
 		}
 	}
 

@@ -424,11 +424,15 @@ func (rc *realCluster) GetAvailableMetrics() []string {
 
 // getClusterStats extracts the derived stats and uptime for the Cluster entity.
 func (rc *realCluster) GetClusterStats() (map[string]StatBundle, time.Duration, error) {
+	rc.lock.RLock()
+	defer rc.lock.RUnlock()
 	return getStats(rc.InfoType), rc.InfoType.Uptime, nil
 }
 
 // getNodeStats extracts the derived stats and uptime for a Node entity.
 func (rc *realCluster) GetNodeStats(req NodeRequest) (map[string]StatBundle, time.Duration, error) {
+	rc.lock.RLock()
+	defer rc.lock.RUnlock()
 	node, ok := rc.Nodes[req.NodeName]
 	if !ok {
 		return nil, time.Duration(0), errInvalidNode
@@ -439,6 +443,8 @@ func (rc *realCluster) GetNodeStats(req NodeRequest) (map[string]StatBundle, tim
 
 // getNamespaceStats extracts the derived stats and uptime for a Namespace entity.
 func (rc *realCluster) GetNamespaceStats(req NamespaceRequest) (map[string]StatBundle, time.Duration, error) {
+	rc.lock.RLock()
+	defer rc.lock.RUnlock()
 	ns, ok := rc.Namespaces[req.NamespaceName]
 	if !ok {
 		return nil, time.Duration(0), errNoSuchNamespace
@@ -449,6 +455,8 @@ func (rc *realCluster) GetNamespaceStats(req NamespaceRequest) (map[string]StatB
 
 // getPodStats extracts the derived stats and uptime for a Pod entity.
 func (rc *realCluster) GetPodStats(req PodRequest) (map[string]StatBundle, time.Duration, error) {
+	rc.lock.RLock()
+	defer rc.lock.RUnlock()
 	ns, ok := rc.Namespaces[req.NamespaceName]
 	if !ok {
 		return nil, time.Duration(0), errNoSuchNamespace
@@ -464,6 +472,8 @@ func (rc *realCluster) GetPodStats(req PodRequest) (map[string]StatBundle, time.
 
 // getPodContainerStats extracts the derived stats and uptime for a Pod Container entity.
 func (rc *realCluster) GetPodContainerStats(req PodContainerRequest) (map[string]StatBundle, time.Duration, error) {
+	rc.lock.RLock()
+	defer rc.lock.RUnlock()
 	ns, ok := rc.Namespaces[req.NamespaceName]
 	if !ok {
 		return nil, time.Duration(0), errNoSuchNamespace
@@ -484,6 +494,8 @@ func (rc *realCluster) GetPodContainerStats(req PodContainerRequest) (map[string
 
 // getFreeContainerStats extracts the derived stats and uptime for a Pod Container entity.
 func (rc *realCluster) GetFreeContainerStats(req FreeContainerRequest) (map[string]StatBundle, time.Duration, error) {
+	rc.lock.RLock()
+	defer rc.lock.RUnlock()
 	node, ok := rc.Nodes[req.NodeName]
 	if !ok {
 		return nil, time.Duration(0), errInvalidNode

@@ -200,7 +200,23 @@ func (rc *realCluster) addMetricToMap(metric string, timestamp time.Time, value 
 		}
 	} else {
 		// TODO(afein): configure epsilon
-		new_ts := daystore.NewDayStore(defaultEpsilon, rc.resolution)
+		// TODO: dynamic epsilon configuration, instead of statically allocating it during init
+		// TODO: handle epsilon for filesystem
+		epsilon := defaultEpsilon
+		switch metric {
+		case cpuLimit:
+			epsilon = cpuLimitEpsilon
+		case cpuUsage:
+			epsilon = cpuUsageEpsilon
+		case memLimit:
+			epsilon = memLimitEpsilon
+		case memUsage:
+			epsilon = memUsageEpsilon
+		case memWorking:
+			epsilon = memWorkingEpsilon
+		}
+
+		new_ts := daystore.NewDayStore(uint64(epsilon), rc.resolution)
 		err := new_ts.Put(point)
 		if err != nil {
 			return fmt.Errorf("failed to add metric to DayStore: %s", err)
@@ -212,6 +228,7 @@ func (rc *realCluster) addMetricToMap(metric string, timestamp time.Time, value 
 
 // parseMetric populates a map[string]*DayStore from a ContainerMetricElement.
 // parseMetric returns the ContainerMetricElement timestamp, iff successful.
+// TODO(afein): handle limits as constants
 func (rc *realCluster) parseMetric(cme *cache.ContainerMetricElement, dict map[string]*daystore.DayStore, context map[string]*statstore.TimePoint) (time.Time, error) {
 	zeroTime := time.Time{}
 	if cme == nil {
@@ -228,7 +245,7 @@ func (rc *realCluster) parseMetric(cme *cache.ContainerMetricElement, dict map[s
 	timestamp := cme.Stats.Timestamp
 	roundedStamp := timestamp.Truncate(rc.resolution)
 
-	// TODO(alex): refactor to avoid repetition
+	// TODO: refactor for readability
 	if cme.Spec.HasCpu {
 		// Append to CPU Limit metric
 		cpu_limit := cme.Spec.Cpu.Limit * 1000 / 1024 // convert to millicores
@@ -253,7 +270,6 @@ func (rc *realCluster) parseMetric(cme *cache.ContainerMetricElement, dict map[s
 
 			if cme.Spec.CreationTime.After(prevTP.Timestamp) {
 				// check if the container was restarted since the last context timestamp
-				// TODO(afein): mark as a container crash event
 				// Reset the context
 				context[cpuUsage] = &statstore.TimePoint{
 					Timestamp: timestamp,

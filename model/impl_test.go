@@ -813,28 +813,45 @@ func cacheFactory() cache.Cache {
 	cme_1 := cmeFactory()
 	cme_2 := cmeFactory()
 	cme_2.Stats.Timestamp = cme_1.Stats.Timestamp
+	cme_2.Stats.Cpu.Usage.Total = cme_1.Stats.Cpu.Usage.Total
+
+	// Generate a flush CME for cme_1 and cme_2
+	cme_2flush := cmeFactory()
+	cme_2flush.Stats.Timestamp = cme_1.Stats.Timestamp.Add(time.Minute)
+	cme_2flush.Stats.Cpu.Usage.Total = cme_1.Stats.Cpu.Usage.Total + uint64(360000000000)
 
 	// Genete Machine CMEs - same timestamp for aggregation
 	cme_3 := cmeFactory()
 	cme_4 := cmeFactory()
 	cme_4.Stats.Timestamp = cme_3.Stats.Timestamp
 
+	// Generate a flush CME for cme_3 and cme_4
+	cme_4flush := cmeFactory()
+	cme_4flush.Stats.Timestamp = cme_4.Stats.Timestamp.Add(time.Minute)
+	cme_4flush.Stats.Cpu.Usage.Total = cme_4.Stats.Cpu.Usage.Total + uint64(360000000000)
+
+	// Genete a generic container further than one resolution in the future
 	cme_5 := cmeFactory()
 	cme_5.Stats.Timestamp = cme_4.Stats.Timestamp.Add(10 * time.Minute)
 	cme_5.Stats.Cpu.Usage.Total = cme_4.Stats.Cpu.Usage.Total + uint64(3600000000000)
+
+	// Generate a flush CME for cme_5 and cme_4
+	cme_5flush := cmeFactory()
+	cme_5flush.Stats.Timestamp = cme_5.Stats.Timestamp.Add(time.Minute)
+	cme_5flush.Stats.Cpu.Usage.Total = cme_5.Stats.Cpu.Usage.Total + uint64(360000000000)
 
 	// Generate a pod with two containers, and a pod without any containers
 	container1 := source_api.Container{
 		Name:     "container1",
 		Hostname: "hostname2",
 		Spec:     *cme_1.Spec,
-		Stats:    []*cadvisor.ContainerStats{cme_1.Stats},
+		Stats:    []*cadvisor.ContainerStats{cme_2flush.Stats, cme_1.Stats},
 	}
 	container2 := source_api.Container{
 		Name:     "container2",
 		Hostname: "hostname3",
 		Spec:     *cme_2.Spec,
-		Stats:    []*cadvisor.ContainerStats{cme_2.Stats},
+		Stats:    []*cadvisor.ContainerStats{cme_2flush.Stats, cme_2.Stats},
 	}
 
 	containers := []source_api.Container{container1, container2}
@@ -866,20 +883,20 @@ func cacheFactory() cache.Cache {
 		Name:     "/",
 		Hostname: "hostname2",
 		Spec:     *cme_3.Spec,
-		Stats:    []*cadvisor.ContainerStats{cme_3.Stats},
+		Stats:    []*cadvisor.ContainerStats{cme_4flush.Stats, cme_3.Stats},
 	}
 	machine_container2 := source_api.Container{
 		Name:     "/",
 		Hostname: "hostname3",
 		Spec:     *cme_4.Spec,
-		Stats:    []*cadvisor.ContainerStats{cme_5.Stats, cme_4.Stats},
+		Stats:    []*cadvisor.ContainerStats{cme_5flush.Stats, cme_5.Stats, cme_4.Stats},
 	}
 	// Generate a free container
 	free_container := source_api.Container{
 		Name:     "free_container1",
 		Hostname: "hostname2",
 		Spec:     *cme_5.Spec,
-		Stats:    []*cadvisor.ContainerStats{cme_5.Stats},
+		Stats:    []*cadvisor.ContainerStats{cme_5flush.Stats, cme_5.Stats},
 	}
 
 	other_containers := []source_api.Container{

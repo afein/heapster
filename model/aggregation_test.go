@@ -177,6 +177,10 @@ func TestAggregateMetricsNormal(t *testing.T) {
 		Timestamp: now.Add(20 * time.Minute),
 		Value:     uint64(3000),
 	})
+	newTS.Put(statstore.TimePoint{
+		Timestamp: now.Add(50 * time.Minute),
+		Value:     uint64(9000),
+	})
 	newTS2 := newDayStore()
 	newTS2.Put(statstore.TimePoint{
 		Timestamp: now,
@@ -190,6 +194,10 @@ func TestAggregateMetricsNormal(t *testing.T) {
 		Timestamp: now.Add(40 * time.Minute),
 		Value:     uint64(9000),
 	})
+	newTS2.Put(statstore.TimePoint{
+		Timestamp: now.Add(50 * time.Minute),
+		Value:     uint64(9000),
+	})
 
 	srcInfo1.Metrics[memUsage] = newTS
 	srcInfo2.Metrics[memUsage] = newTS2
@@ -201,8 +209,12 @@ func TestAggregateMetricsNormal(t *testing.T) {
 	assert.NotNil(targetInfo.Metrics[memUsage])
 	targetMemTS := targetInfo.Metrics[memUsage]
 	res := targetMemTS.Hour.Get(time.Time{}, time.Time{})
-	require.Len(res, 3)
-	assert.Equal(res[0].Value, uint64(9000))
-	assert.Equal(res[1].Value, uint64(6500))
-	assert.Equal(res[2].Value, uint64(7000))
+
+	require.Len(res, 49)
+	assert.Equal(res[0].Value, uint64(12000))
+	assert.Equal(res[8].Value, uint64(12000))
+	assert.Equal(res[9].Value, uint64(6500))
+	assert.Equal(res[28].Value, uint64(6500))
+	assert.Equal(res[29].Value, uint64(7000))
+	assert.Equal(res[48].Value, uint64(7000))
 }
