@@ -206,7 +206,7 @@ func (ss *StatStore) Put(tp TimePoint) error {
 		return nil
 	}
 
-	ss.Flush(ts, tp.Value)
+	ss.flush(ts, tp.Value)
 	return nil
 }
 
@@ -244,8 +244,8 @@ func (ss *StatStore) newBucket(numRes uint16) {
 	}
 }
 
-// Flush causes the lastPut struct to be flushed to the StatStore list.
-func (ss *StatStore) Flush(ts time.Time, val uint64) {
+// flush causes the lastPut struct to be flushed to the StatStore list.
+func (ss *StatStore) flush(ts time.Time, val uint64) {
 	// The new point is in the future, lastPut needs to be flushed to the StatStore.
 	ss.validCache = false
 
@@ -258,11 +258,6 @@ func (ss *StatStore) Flush(ts time.Time, val uint64) {
 	for curr.After(ss.lastPut.stamp) {
 		curr = curr.Add(-ss.resolution)
 		numRes++
-	}
-
-	// Handle the case where we just want to flush lastPut with no new TimePoint
-	if ts.Equal(time.Time{}) {
-		numRes = 1
 	}
 
 	// Create a new bucket if the buffer is empty

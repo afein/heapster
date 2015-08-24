@@ -640,31 +640,3 @@ func TestMaxSize(t *testing.T) {
 	store = NewStatStore(50, 10*time.Second, 6, []float64{})
 	assert.Equal(time.Minute, store.MaxSize())
 }
-
-func TestFlushEmpty(t *testing.T) {
-	var (
-		zeroTime = time.Time{}
-		assert   = assert.New(t)
-	)
-
-	// Create a StatStore of 5 minutes, 1 min resolution.
-	store := NewStatStore(50, time.Minute, 5, []float64{})
-	now := time.Now().Truncate(time.Minute)
-
-	// Put one point in the StatStore.
-	assert.NoError(store.Put(TimePoint{
-		Timestamp: now,
-		Value:     uint64(30),
-	}))
-
-	// Get before flush
-	res := store.Get(zeroTime, zeroTime)
-	assert.Len(res, 0)
-
-	// Normal invocation
-	store.Flush(zeroTime, 0)
-
-	// Get after flush
-	res = store.Get(zeroTime, zeroTime)
-	assert.Len(res, 1)
-}
