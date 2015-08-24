@@ -15,6 +15,7 @@
 package model
 
 import (
+	"fmt"
 	"math/rand"
 	"strings"
 	"testing"
@@ -160,12 +161,13 @@ func TestAddMetricToMapExistingKey(t *testing.T) {
 	require.Len(results, 0)
 
 	// Second Call: addMetricToMap for an existing key, same time
-	new_value := uint64(102)
+	new_value := uint64(1234567890)
 	assert.NoError(cluster.addMetricToMap(new_metric_name, stamp, new_value, metrics))
 
 	require.Len(results, 0)
 
 	// Second Call: addMetricToMap for an existing key, new time
+	new_value = uint64(617283996)
 	later_stamp := stamp.Add(20 * time.Minute)
 	assert.NoError(cluster.addMetricToMap(new_metric_name, later_stamp, new_value, metrics))
 
@@ -173,30 +175,36 @@ func TestAddMetricToMapExistingKey(t *testing.T) {
 	results = ts.Hour.Get(zeroTime, zeroTime)
 	require.Len(results, 20)
 	assert.Equal(results[0].Timestamp, stamp.Add(19*time.Minute))
-	assert.Equal(roundToEpsilon(results[0].Value, defaultEpsilon), roundToEpsilon(617283996, defaultEpsilon))
+	assert.Equal(roundToEpsilon(results[0].Value, defaultEpsilon), roundToEpsilon(1234567890, defaultEpsilon))
 	assert.Equal(results[19].Timestamp, stamp)
-	assert.Equal(roundToEpsilon(results[19].Value, defaultEpsilon), roundToEpsilon(617283996, defaultEpsilon))
+	assert.Equal(roundToEpsilon(results[19].Value, defaultEpsilon), roundToEpsilon(1234567890, defaultEpsilon))
 
 	// Second Call: addMetricToMap for an existing key, same time
 	assert.NoError(cluster.addMetricToMap(new_metric_name, later_stamp, new_value, metrics))
 
 	ts = *metrics[new_metric_name]
 	results = ts.Hour.Get(zeroTime, zeroTime)
-	require.Len(results, 2)
-	assert.Equal(results[0].Timestamp, later_stamp)
-	assert.Equal(results[0].Value, uint64(102))
-	assert.Equal(results[1].Timestamp, stamp)
-	assert.Equal(results[1].Value, uint64(617283996))
+	require.Len(results, 20)
+	assert.Equal(results[0].Timestamp, stamp.Add(19*time.Minute))
+	assert.Equal(results[0].Value, uint64(roundToEpsilon(1234567890, defaultEpsilon)))
+	assert.Equal(results[19].Timestamp, stamp)
+	assert.Equal(results[19].Value, uint64(roundToEpsilon(1234567890, defaultEpsilon)))
 
-	// Third Call: addMetricToMap for an existing key, overwrites previous data
-	later_stamp = stamp.Add(48 * time.Hour)
+	// Third Call: addMetricToMap for an existing key in the distant future
+	stamp = later_stamp
+	fmt.Println(stamp)
+	later_stamp = stamp.Add(14 * time.Hour)
+	fmt.Println(later_stamp)
+	new_value = uint64(1234567890)
 	assert.NoError(cluster.addMetricToMap(new_metric_name, later_stamp, new_value, metrics))
 
 	ts = *metrics[new_metric_name]
 	results = ts.Hour.Get(zeroTime, zeroTime)
-	require.Len(results, 1)
-	assert.Equal(results[0].Timestamp, later_stamp)
-	assert.Equal(results[0].Value, uint64(102))
+	require.Len(results, 60) // One full hour of data
+	assert.Equal(results[0].Timestamp, stamp.Add(13*time.Hour).Add(59*time.Minute))
+	assert.Equal(results[0].Value, uint64(roundToEpsilon(617283996, defaultEpsilon)))
+	assert.Equal(results[59].Timestamp, stamp.Add(13*time.Hour))
+	assert.Equal(results[59].Value, uint64(roundToEpsilon(617283996, defaultEpsilon)))
 
 	// Fourth Call: addMetricToMap for an existing key, cause TimeStore failure
 	assert.Error(cluster.addMetricToMap(new_metric_name, zeroTime, new_value, metrics))

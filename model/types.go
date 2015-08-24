@@ -76,8 +76,8 @@ const fsUsage = "fs-usage"
 
 // epsilon values for the underlying in-memory stores
 /*
-const cpuLimitEpsilon = 50
-const cpuUsageEpsilon = 50
+const cpuLimitEpsilon = 20
+const cpuUsageEpsilon = 20
 const memLimitEpsilon = 4194304   // 4 MB
 const memUsageEpsilon = 4194304   // 4 MB
 const memWorkingEpsilon = 4194304 // 4 MB
