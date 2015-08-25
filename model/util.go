@@ -164,10 +164,11 @@ func instantFromCumulativeMetric(value uint64, stamp time.Time, prev *statstore.
 func getStats(info InfoType) map[string]StatBundle {
 	res := make(map[string]StatBundle)
 	for key, ds := range info.Metrics {
-		last, _ := ds.Hour.Last()
+		last, _ := ds.Hour.Last(false)
+		lastMax, _ := ds.Hour.Last(true)
 		minAvg := last.Value
-		minPct := last.Value
-		minMax := last.Value
+		minPct := lastMax.Value
+		minMax := lastMax.Value
 		hourAvg, _ := ds.Hour.Average()
 		hourPct, _ := ds.Hour.Percentile(0.95)
 		hourMax, _ := ds.Hour.Max()

@@ -27,7 +27,7 @@ import (
 // by Timeseries summation of the respective Metrics fields.
 // aggregationStep should be called after new data is present in the cluster,
 // but before the cluster timestamp is updated.
-func (rc *realCluster) aggregationStep() error {
+func (rc *realModel) aggregationStep() error {
 	rc.lock.Lock()
 	defer rc.lock.Unlock()
 
@@ -55,7 +55,7 @@ func (rc *realCluster) aggregationStep() error {
 
 // aggregateNodeMetrics populates the Cluster.InfoType.Metrics field by adding up all node metrics.
 // Assumes an appropriate lock is already taken by the caller.
-func (rc *realCluster) aggregateNodeMetrics(c chan error) {
+func (rc *realModel) aggregateNodeMetrics(c chan error) {
 	if len(rc.Nodes) == 0 {
 		// Fail silently if the cluster has no nodes
 		c <- nil
@@ -71,7 +71,7 @@ func (rc *realCluster) aggregateNodeMetrics(c chan error) {
 
 // aggregateKubeMetrics initiates depth-first aggregation of Kubernetes metrics.
 // Assumes an appropriate lock is already taken by the caller.
-func (rc *realCluster) aggregateKubeMetrics(c chan error) {
+func (rc *realModel) aggregateKubeMetrics(c chan error) {
 	if len(rc.Namespaces) == 0 {
 		// Fail silently if the cluster has no namespaces
 		c <- nil
@@ -102,7 +102,7 @@ func (rc *realCluster) aggregateKubeMetrics(c chan error) {
 
 // aggregateNamespaceMetrics populates a NamespaceInfo.Metrics field by aggregating all PodInfo.
 // Assumes an appropriate lock is already taken by the caller.
-func (rc *realCluster) aggregateNamespaceMetrics(namespace *NamespaceInfo, c chan error) {
+func (rc *realModel) aggregateNamespaceMetrics(namespace *NamespaceInfo, c chan error) {
 	if namespace == nil {
 		c <- fmt.Errorf("nil Namespace pointer passed for aggregation")
 		return
@@ -142,7 +142,7 @@ func (rc *realCluster) aggregateNamespaceMetrics(namespace *NamespaceInfo, c cha
 
 // aggregatePodMetrics populates a PodInfo.Metrics field by aggregating all ContainerInfo.
 // Assumes an appropriate lock is already taken by the caller.
-func (rc *realCluster) aggregatePodMetrics(pod *PodInfo, c chan error) {
+func (rc *realModel) aggregatePodMetrics(pod *PodInfo, c chan error) {
 	if pod == nil {
 		c <- fmt.Errorf("nil Pod pointer passed for aggregation")
 		return
@@ -164,7 +164,7 @@ func (rc *realCluster) aggregatePodMetrics(pod *PodInfo, c chan error) {
 // aggregateMetrics populates an InfoType by adding metrics across a slice of InfoTypes.
 // Only metrics taken after the cluster timestamp are affected.
 // Assumes an appropriate lock is already taken by the caller.
-func (rc *realCluster) aggregateMetrics(target *InfoType, sources []*InfoType) error {
+func (rc *realModel) aggregateMetrics(target *InfoType, sources []*InfoType) error {
 	zeroTime := time.Time{}
 
 	if target == nil {
@@ -204,10 +204,11 @@ func (rc *realCluster) aggregateMetrics(target *InfoType, sources []*InfoType) e
 		ds, ok := target.Metrics[key]
 		if !ok {
 			// Metric does not exist on target InfoType, create DayStore
-			newDS := daystore.NewDayStore(epsilonFromMetric(key), rc.resolution)
-			target.Metrics[key] = newDS
-			ds = newDS
+			ds := daystore.NewDayStore(epsilonFromMetric(key), rc.resolution)
+			target.Metrics[key] = ds
 		}
+
+		fmt.Println(tpSlice)
 		// Put the added TimeSeries in the corresponding DayStore, in time-ascending order
 		for i := len(tpSlice) - 1; i >= 0; i-- {
 			err := ds.Put(tpSlice[i])
@@ -220,7 +221,7 @@ func (rc *realCluster) aggregateMetrics(target *InfoType, sources []*InfoType) e
 	// Set the creation time of the entity to the earliest one that we have had data for
 	earliestCreation := sources[0].Creation
 	for _, info := range sources[1:] {
-		if info.Creation.Before(earliestCreation) {
+		if info.Creation.Before(earliestCreation) && info.Creation.After(time.Time{}) {
 			earliestCreation = info.Creation
 		}
 	}

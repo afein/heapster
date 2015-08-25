@@ -38,14 +38,14 @@ func newDayStore() *daystore.DayStore {
 
 // TestNewCluster tests the sanity of NewCluster
 func TestNewCluster(t *testing.T) {
-	cluster := NewCluster(time.Minute)
+	cluster := NewModel(time.Minute)
 	assert.NotNil(t, cluster)
 }
 
 // TestAddNamespace tests all flows of addNamespace.
 func TestAddNamespace(t *testing.T) {
 	var (
-		cluster        = newRealCluster(time.Minute)
+		cluster        = newRealModel(time.Minute)
 		namespace_name = "default"
 		assert         = assert.New(t)
 	)
@@ -67,7 +67,7 @@ func TestAddNamespace(t *testing.T) {
 // TestAddNode tests all flows of addNode.
 func TestAddNode(t *testing.T) {
 	var (
-		cluster  = newRealCluster(time.Minute)
+		cluster  = newRealModel(time.Minute)
 		hostname = "kubernetes-minion-xkhz"
 		assert   = assert.New(t)
 	)
@@ -90,7 +90,7 @@ func TestAddNode(t *testing.T) {
 // TestAddPod tests all flows of addPod.
 func TestAddPod(t *testing.T) {
 	var (
-		cluster   = newRealCluster(time.Minute)
+		cluster   = newRealModel(time.Minute)
 		pod_name  = "podname-xkhz"
 		pod_uid   = "123124-124124-124124124124"
 		namespace = cluster.addNamespace("default")
@@ -126,7 +126,7 @@ func TestAddPod(t *testing.T) {
 // TestUpdateTime tests the sanity of updateTime.
 func TestUpdateTime(t *testing.T) {
 	var (
-		cluster = newRealCluster(time.Minute)
+		cluster = newRealModel(time.Minute)
 		stamp   = time.Now()
 	)
 
@@ -142,7 +142,7 @@ func TestUpdateTime(t *testing.T) {
 // Tests the flow of AddMetricToMap where the metric name is present in the map
 func TestAddMetricToMapExistingKey(t *testing.T) {
 	var (
-		cluster         = newRealCluster(time.Minute)
+		cluster         = newRealModel(time.Minute)
 		metrics         = make(map[string]*daystore.DayStore)
 		new_metric_name = "name_already_in_map"
 		value           = uint64(1234567890)
@@ -210,7 +210,7 @@ func TestAddMetricToMapExistingKey(t *testing.T) {
 // Tests the flow of AddMetricToMap where the metric name is not present in the map
 func TestAddMetricToMapNewKey(t *testing.T) {
 	var (
-		cluster         = newRealCluster(time.Minute)
+		cluster         = newRealModel(time.Minute)
 		metrics         = make(map[string]*daystore.DayStore)
 		new_metric_name = "name_not_in_map"
 		stamp           = time.Now().Round(cluster.resolution)
@@ -239,7 +239,7 @@ func TestAddMetricToMapNewKey(t *testing.T) {
 // TestParseMetricError tests the error flows of ParseMetric
 func TestParseMetricError(t *testing.T) {
 	var (
-		cluster = newRealCluster(time.Minute)
+		cluster = newRealModel(time.Minute)
 		context = make(map[string]*statstore.TimePoint)
 		dict    = make(map[string]*daystore.DayStore)
 		cme     = cmeFactory()
@@ -274,7 +274,7 @@ func roundToEpsilon(value, epsilon uint64) uint64 {
 // TestParseMetricNormal tests the normal flow of ParseMetric
 func TestParseMetricNormal(t *testing.T) {
 	var (
-		cluster    = newRealCluster(time.Minute)
+		cluster    = newRealModel(time.Minute)
 		zeroTime   = time.Time{}
 		metrics    = make(map[string]*daystore.DayStore)
 		context    = make(map[string]*statstore.TimePoint)
@@ -380,7 +380,7 @@ func TestParseMetricNormal(t *testing.T) {
 // TestUpdateInfoTypeError Tests the error flows of updateInfoType.
 func TestUpdateInfoTypeError(t *testing.T) {
 	var (
-		cluster      = newRealCluster(time.Minute)
+		cluster      = newRealModel(time.Minute)
 		new_infotype = newInfoType(nil, nil, nil)
 		full_ce      = containerElementFactory(nil)
 		assert       = assert.New(t)
@@ -401,7 +401,7 @@ func TestUpdateInfoTypeError(t *testing.T) {
 // TestUpdateInfoTypeNormal tests the normal flows of UpdateInfoType.
 func TestUpdateInfoTypeNormal(t *testing.T) {
 	var (
-		cluster      = newRealCluster(time.Minute)
+		cluster      = newRealModel(time.Minute)
 		new_cme      = cmeFactory()
 		empty_ce     = containerElementFactory([]*cache.ContainerMetricElement{})
 		nil_ce       = containerElementFactory([]*cache.ContainerMetricElement{new_cme, nil})
@@ -481,7 +481,7 @@ func TestUpdateInfoTypeNormal(t *testing.T) {
 // TestUpdateFreeContainer tests the flow of updateFreeContainer
 func TestUpdateFreeContainer(t *testing.T) {
 	var (
-		cluster = newRealCluster(time.Minute)
+		cluster = newRealModel(time.Minute)
 		ce      = containerElementFactory(nil)
 		assert  = assert.New(t)
 	)
@@ -501,7 +501,7 @@ func TestUpdateFreeContainer(t *testing.T) {
 // TestUpdatePodContainer tests the flow of updatePodContainer
 func TestUpdatePodContainer(t *testing.T) {
 	var (
-		cluster   = newRealCluster(time.Minute)
+		cluster   = newRealModel(time.Minute)
 		namespace = cluster.addNamespace("default")
 		node      = cluster.addNode("new_node_xyz")
 		pod_ptr   = cluster.addPod("new_pod", "1234-1245-235235", namespace, node)
@@ -519,7 +519,7 @@ func TestUpdatePodContainer(t *testing.T) {
 // TestUpdatePodNormal tests the normal flow of updatePod.
 func TestUpdatePodNormal(t *testing.T) {
 	var (
-		cluster  = newRealCluster(time.Minute)
+		cluster  = newRealModel(time.Minute)
 		pod_elem = podElementFactory()
 		assert   = assert.New(t)
 	)
@@ -537,7 +537,7 @@ func TestUpdatePodNormal(t *testing.T) {
 // TestUpdatePodError tests the error flow of updatePod.
 func TestUpdatePodError(t *testing.T) {
 	var (
-		cluster = newRealCluster(time.Minute)
+		cluster = newRealModel(time.Minute)
 		assert  = assert.New(t)
 	)
 	// Invocation with a nil parameter
@@ -549,7 +549,7 @@ func TestUpdatePodError(t *testing.T) {
 // TestUpdateNodeInvalid tests the error flow of updateNode.
 func TestUpdateNodeInvalid(t *testing.T) {
 	var (
-		cluster = newRealCluster(time.Minute)
+		cluster = newRealModel(time.Minute)
 		ce      = containerElementFactory(nil)
 		assert  = assert.New(t)
 	)
@@ -563,7 +563,7 @@ func TestUpdateNodeInvalid(t *testing.T) {
 // TestUpdateNodeNormal tests the normal flow of updateNode.
 func TestUpdateNodeNormal(t *testing.T) {
 	var (
-		cluster = newRealCluster(time.Minute)
+		cluster = newRealModel(time.Minute)
 		ce      = containerElementFactory(nil)
 		assert  = assert.New(t)
 	)
@@ -580,7 +580,7 @@ func TestUpdateNodeNormal(t *testing.T) {
 // TestUpdate performs consecutive calls to Update with both empty and non-empty caches
 func TestUpdate(t *testing.T) {
 	var (
-		cluster      = newRealCluster(time.Minute)
+		cluster      = newRealModel(time.Minute)
 		source_cache = cacheFactory()
 		empty_cache  = cache.NewCache(24*time.Hour, time.Hour)
 		zeroTime     = time.Time{}

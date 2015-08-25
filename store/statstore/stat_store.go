@@ -406,7 +406,9 @@ func (ss *StatStore) Get(start, end time.Time) []TimePoint {
 
 // Last returns the latest TimePoint as held by lastPut,
 // Last returns an error if no Put operations have been performed on the StatStore.
-func (ss *StatStore) Last() (TimePoint, error) {
+// The max argument, if true, causes Last to return the max value of the lastPut, -
+// instead of the average
+func (ss *StatStore) Last(max bool) (TimePoint, error) {
 	ss.RLock()
 	defer ss.RUnlock()
 
@@ -418,6 +420,9 @@ func (ss *StatStore) Last() (TimePoint, error) {
 		Timestamp: ss.lastPut.stamp,
 		Value:     uint64(ss.lastPut.average),
 	}
+	if max {
+		tp.Value = ss.lastPut.max
+	}
 
 	return tp, nil
 }
@@ -427,7 +432,7 @@ func (ss *StatStore) Last() (TimePoint, error) {
 func (ss *StatStore) fillCache() {
 	// Calculate the average and max, flatten values into a slice
 	sum := uint64(0)
-	curMax := uint64(0)
+	curMax := ss.lastPut.max
 	vals := []float64{}
 	for elem := ss.buffer.Front(); elem != nil; elem = elem.Next() {
 		entry := elem.Value.(tpBucket)

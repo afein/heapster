@@ -29,7 +29,7 @@ func TestLast(t *testing.T) {
 	now := time.Now().Truncate(time.Minute)
 
 	// Invocation with nothing in the StatStore - no result
-	last, err := store.Last()
+	last, err := store.Last(false)
 	assert.Error(err)
 	assert.Equal(last, TimePoint{})
 
@@ -61,10 +61,16 @@ func TestLast(t *testing.T) {
 		Value:     uint64(100000),
 	}))
 
-	last, err = store.Last()
+	last, err = store.Last(false)
 	assert.NoError(err)
 	assert.Equal(last.Timestamp, now)
 	assert.Equal(last.Value, uint64(10029))
+
+	// Invocation for the max
+	last, err = store.Last(true)
+	assert.NoError(err)
+	assert.Equal(last.Timestamp, now)
+	assert.Equal(last.Value, uint64(50000))
 
 	// Put one value from the next minute
 	assert.NoError(store.Put(TimePoint{
@@ -73,7 +79,7 @@ func TestLast(t *testing.T) {
 	}))
 
 	// Invocation where Last is a "fake" point added because of a missed resolution.
-	last, err = store.Last()
+	last, err = store.Last(false)
 	assert.NoError(err)
 	assert.Equal(last.Timestamp, now.Add(time.Minute))
 	assert.Equal(last.Value, uint64(92))
@@ -84,7 +90,7 @@ func TestLast(t *testing.T) {
 		Value:     uint64(10000),
 	}))
 
-	last, err = store.Last()
+	last, err = store.Last(false)
 	assert.NoError(err)
 	assert.Equal(last.Timestamp, now.Add(3*time.Minute))
 	assert.Equal(last.Value, uint64(10000))
@@ -131,7 +137,7 @@ func TestMax(t *testing.T) {
 	// Invocation where the previous minute is now accessible
 	max, err = store.Max()
 	assert.NoError(err)
-	assert.Equal(max, uint64(100))
+	assert.Equal(max, uint64(199))
 
 	// Put 1 Point in the next minute.
 	assert.NoError(store.Put(TimePoint{
@@ -162,7 +168,7 @@ func TestMax(t *testing.T) {
 	// Invocation with three minutes in three different buckets
 	max, err = store.Max()
 	assert.NoError(err)
-	assert.Equal(max, uint64(200))
+	assert.Equal(max, uint64(511))
 
 	// Put one value from the next minute
 	assert.NoError(store.Put(TimePoint{

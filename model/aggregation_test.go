@@ -29,7 +29,7 @@ import (
 // The normal flow is tested through TestUpdate.
 func TestAggregateNodeMetricsEmpty(t *testing.T) {
 	var (
-		cluster = newRealCluster(time.Minute)
+		cluster = newRealModel(time.Minute)
 		c       = make(chan error)
 		assert  = assert.New(t)
 	)
@@ -45,7 +45,7 @@ func TestAggregateNodeMetricsEmpty(t *testing.T) {
 // The normal flow is tested through TestUpdate.
 func TestAggregateKubeMetricsEmpty(t *testing.T) {
 	var (
-		cluster = newRealCluster(time.Minute)
+		cluster = newRealModel(time.Minute)
 		c       = make(chan error)
 		assert  = assert.New(t)
 	)
@@ -66,7 +66,7 @@ func TestAggregateKubeMetricsEmpty(t *testing.T) {
 // The normal flow is tested through TestUpdate.
 func TestAggregateNamespaceMetricsError(t *testing.T) {
 	var (
-		cluster = newRealCluster(time.Minute)
+		cluster = newRealModel(time.Minute)
 		c       = make(chan error)
 		assert  = assert.New(t)
 	)
@@ -92,7 +92,7 @@ func TestAggregateNamespaceMetricsError(t *testing.T) {
 // The normal flow is tested through TestUpdate.
 func TestAggregatePodMetricsError(t *testing.T) {
 	var (
-		cluster = newRealCluster(time.Minute)
+		cluster = newRealModel(time.Minute)
 		c       = make(chan error)
 		assert  = assert.New(t)
 	)
@@ -118,7 +118,7 @@ func TestAggregatePodMetricsError(t *testing.T) {
 // TestAggregateMetricsError tests the error flows of aggregateMetrics.
 func TestAggregateMetricsError(t *testing.T) {
 	var (
-		cluster    = newRealCluster(time.Minute)
+		cluster    = newRealModel(time.Minute)
 		targetInfo = InfoType{
 			Metrics: make(map[string]*daystore.DayStore),
 			Labels:  make(map[string]string),
@@ -150,7 +150,7 @@ func TestAggregateMetricsError(t *testing.T) {
 // TestAggregateMetricsNormal tests the normal flows of aggregateMetrics.
 func TestAggregateMetricsNormal(t *testing.T) {
 	var (
-		cluster    = newRealCluster(time.Minute)
+		cluster    = newRealModel(time.Minute)
 		targetInfo = InfoType{
 			Metrics: make(map[string]*daystore.DayStore),
 			Labels:  make(map[string]string),

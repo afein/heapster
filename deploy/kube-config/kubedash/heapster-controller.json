@@ -21,7 +21,7 @@
 	    "spec": {
 		"containers": [
 		    {
-			"image": "afein/heapster:latest",
+			"image": "afein/heapster-model:latest",
 			"name": "heapster",
 			"command": [
 			    "/heapster",

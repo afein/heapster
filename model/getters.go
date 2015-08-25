@@ -36,7 +36,7 @@ var (
 
 // GetClusterMetric returns a metric of the cluster entity, along with the latest timestamp.
 // GetClusterMetric returns a slice of TimePoints for that metric, with times starting AFTER the starting timestamp.
-func (rc *realCluster) GetClusterMetric(req ClusterMetricRequest) ([]statstore.TimePoint, time.Time, error) {
+func (rc *realModel) GetClusterMetric(req ClusterMetricRequest) ([]statstore.TimePoint, time.Time, error) {
 	var zeroTime time.Time
 	rc.lock.RLock()
 	defer rc.lock.RUnlock()
@@ -55,7 +55,7 @@ func (rc *realCluster) GetClusterMetric(req ClusterMetricRequest) ([]statstore.T
 
 // GetNodeMetric returns a metric of a node entity, along with the latest timestamp.
 // GetNodeMetric returns a slice of TimePoints for that metric, with times starting AFTER the starting timestamp.
-func (rc *realCluster) GetNodeMetric(req NodeMetricRequest) ([]statstore.TimePoint, time.Time, error) {
+func (rc *realModel) GetNodeMetric(req NodeMetricRequest) ([]statstore.TimePoint, time.Time, error) {
 	var zeroTime time.Time
 	rc.lock.RLock()
 	defer rc.lock.RUnlock()
@@ -81,7 +81,7 @@ func (rc *realCluster) GetNodeMetric(req NodeMetricRequest) ([]statstore.TimePoi
 // GetNamespaceMetric returns a metric of a namespace entity, along with the latest timestamp.
 // GetNamespaceMetric receives as arguments the namespace, the metric name and a start time.
 // GetNamespaceMetric returns a slice of TimePoints for that metric, with times starting AFTER the starting timestamp.
-func (rc *realCluster) GetNamespaceMetric(req NamespaceMetricRequest) ([]statstore.TimePoint, time.Time, error) {
+func (rc *realModel) GetNamespaceMetric(req NamespaceMetricRequest) ([]statstore.TimePoint, time.Time, error) {
 	var zeroTime time.Time
 	rc.lock.RLock()
 	defer rc.lock.RUnlock()
@@ -108,7 +108,7 @@ func (rc *realCluster) GetNamespaceMetric(req NamespaceMetricRequest) ([]statsto
 // GetPodMetric returns a metric of a Pod entity, along with the latest timestamp.
 // GetPodMetric receives as arguments the namespace, the pod name, the metric name and a start time.
 // GetPodMetric returns a slice of TimePoints for that metric, with times starting AFTER the starting timestamp.
-func (rc *realCluster) GetPodMetric(req PodMetricRequest) ([]statstore.TimePoint, time.Time, error) {
+func (rc *realModel) GetPodMetric(req PodMetricRequest) ([]statstore.TimePoint, time.Time, error) {
 	var zeroTime time.Time
 	rc.lock.RLock()
 	defer rc.lock.RUnlock()
@@ -140,7 +140,7 @@ func (rc *realCluster) GetPodMetric(req PodMetricRequest) ([]statstore.TimePoint
 // GetBatchPodMetric receives as arguments the namespace, the pod names, the metric name and a start time.
 // GetBatchPodMetric returns, for ach of the pods, slice of TimePoints for that metric, with times starting AFTER the starting timestamp
 // (possibly empty if )
-func (rc *realCluster) GetBatchPodMetric(req BatchPodRequest) ([][]statstore.TimePoint, time.Time, error) {
+func (rc *realModel) GetBatchPodMetric(req BatchPodRequest) ([][]statstore.TimePoint, time.Time, error) {
 	var zeroTime time.Time
 	rc.lock.RLock()
 	defer rc.lock.RUnlock()
@@ -177,7 +177,7 @@ func (rc *realCluster) GetBatchPodMetric(req BatchPodRequest) ([][]statstore.Tim
 // GetPodContainerMetric returns a metric of a container entity that belongs in a Pod, along with the latest timestamp.
 // GetPodContainerMetric receives as arguments the namespace, the pod name, the container name, the metric name and a start time.
 // GetPodContainerMetric returns a slice of TimePoints for that metric, with times starting AFTER the starting timestamp.
-func (rc *realCluster) GetPodContainerMetric(req PodContainerMetricRequest) ([]statstore.TimePoint, time.Time, error) {
+func (rc *realModel) GetPodContainerMetric(req PodContainerMetricRequest) ([]statstore.TimePoint, time.Time, error) {
 	var zeroTime time.Time
 	rc.lock.RLock()
 	defer rc.lock.RUnlock()
@@ -209,7 +209,7 @@ func (rc *realCluster) GetPodContainerMetric(req PodContainerMetricRequest) ([]s
 // GetFreeContainerMetric returns a metric of a free container entity, along with the latest timestamp.
 // GetFreeContainerMetric receives as arguments the host name, the container name, the metric name and a start time.
 // GetFreeContainerMetric returns a slice of TimePoints for that metric, with times starting AFTER the starting timestamp.
-func (rc *realCluster) GetFreeContainerMetric(req FreeContainerMetricRequest) ([]statstore.TimePoint, time.Time, error) {
+func (rc *realModel) GetFreeContainerMetric(req FreeContainerMetricRequest) ([]statstore.TimePoint, time.Time, error) {
 	var zeroTime time.Time
 	rc.lock.RLock()
 	defer rc.lock.RUnlock()
@@ -240,7 +240,7 @@ func makeEntityListEntry(name string, entities map[string]*daystore.DayStore) En
 	if !ok {
 		newListEntry.CPUUsage = uint64(0)
 	} else {
-		lastHourCPU, err := cpu.Hour.Last()
+		lastHourCPU, err := cpu.Hour.Last(true)
 		if err != nil {
 			newListEntry.CPUUsage = uint64(0)
 		} else {
@@ -252,7 +252,7 @@ func makeEntityListEntry(name string, entities map[string]*daystore.DayStore) En
 	if !ok {
 		newListEntry.MemUsage = uint64(0)
 	} else {
-		lastHourMem, err := mem.Hour.Last()
+		lastHourMem, err := mem.Hour.Last(true)
 		if err != nil {
 			newListEntry.MemUsage = uint64(0)
 		} else {
@@ -265,7 +265,7 @@ func makeEntityListEntry(name string, entities map[string]*daystore.DayStore) En
 }
 
 // GetNodes returns a slice of EntityListEntry for all the nodes that are available on the cluster.
-func (rc *realCluster) GetNodes() []EntityListEntry {
+func (rc *realModel) GetNodes() []EntityListEntry {
 	rc.lock.RLock()
 	defer rc.lock.RUnlock()
 
@@ -283,7 +283,7 @@ func (rc *realCluster) GetNodes() []EntityListEntry {
 
 // findPodNamespace finds the namespace name that a given PodInfo belongs to
 // assumes cluster lock is taken by the caller.
-func (rc *realCluster) findPodNamespace(target *PodInfo) (string, error) {
+func (rc *realModel) findPodNamespace(target *PodInfo) (string, error) {
 	for namespace, nsref := range rc.Namespaces {
 		for _, pod := range nsref.Pods {
 			if pod == target {
@@ -296,7 +296,7 @@ func (rc *realCluster) findPodNamespace(target *PodInfo) (string, error) {
 
 // GetNodePods returns the names and latest usage values of all the pods
 // under a specific node.
-func (rc *realCluster) GetNodePods(hostname string) []EntityListEntry {
+func (rc *realModel) GetNodePods(hostname string) []EntityListEntry {
 	rc.lock.RLock()
 	defer rc.lock.RUnlock()
 
@@ -324,7 +324,7 @@ func (rc *realCluster) GetNodePods(hostname string) []EntityListEntry {
 
 // GetNamespaces returns the names and latest usage values of all the namespaces
 // that are available in the model.
-func (rc *realCluster) GetNamespaces() []EntityListEntry {
+func (rc *realModel) GetNamespaces() []EntityListEntry {
 	rc.lock.RLock()
 	defer rc.lock.RUnlock()
 
@@ -341,7 +341,7 @@ func (rc *realCluster) GetNamespaces() []EntityListEntry {
 
 // GetPods returns the names and latest usage values of all the pods that are
 // available in the model under a specific namespace.
-func (rc *realCluster) GetPods(namespace string) []EntityListEntry {
+func (rc *realModel) GetPods(namespace string) []EntityListEntry {
 	rc.lock.RLock()
 	defer rc.lock.RUnlock()
 
@@ -363,7 +363,7 @@ func (rc *realCluster) GetPods(namespace string) []EntityListEntry {
 
 // GetPodContainers returns the names and latest usage values of all the containers
 // that are available in the model under a specific namespace and pod.
-func (rc *realCluster) GetPodContainers(namespace string, pod string) []EntityListEntry {
+func (rc *realModel) GetPodContainers(namespace string, pod string) []EntityListEntry {
 	rc.lock.RLock()
 	defer rc.lock.RUnlock()
 
@@ -389,7 +389,7 @@ func (rc *realCluster) GetPodContainers(namespace string, pod string) []EntityLi
 
 // GetFreeContainers returns the names and latest usage values of all the containers
 //that are available in the model under a specific node.
-func (rc *realCluster) GetFreeContainers(node string) []EntityListEntry {
+func (rc *realModel) GetFreeContainers(node string) []EntityListEntry {
 	rc.lock.RLock()
 	defer rc.lock.RUnlock()
 
@@ -411,7 +411,7 @@ func (rc *realCluster) GetFreeContainers(node string) []EntityListEntry {
 
 // GetAvailableMetrics returns the names of all metrics that are available on the cluster.
 // Due to metric propagation, all entities of the cluster have the same metrics.
-func (rc *realCluster) GetAvailableMetrics() []string {
+func (rc *realModel) GetAvailableMetrics() []string {
 	rc.lock.RLock()
 	defer rc.lock.RUnlock()
 
@@ -422,19 +422,20 @@ func (rc *realCluster) GetAvailableMetrics() []string {
 	return res
 }
 
-func (rc *realCluster) uptime(infotype *InfoType) time.Duration {
+// uptime returns the uptime of an entity, given its InfoType
+func (rc *realModel) uptime(infotype *InfoType) time.Duration {
 	return rc.timestamp.Sub(infotype.Creation)
 }
 
 // getClusterStats extracts the derived stats and uptime for the Cluster entity.
-func (rc *realCluster) GetClusterStats() (map[string]StatBundle, time.Duration, error) {
+func (rc *realModel) GetClusterStats() (map[string]StatBundle, time.Duration, error) {
 	rc.lock.RLock()
 	defer rc.lock.RUnlock()
 	return getStats(rc.InfoType), rc.uptime(&rc.InfoType), nil
 }
 
 // getNodeStats extracts the derived stats and uptime for a Node entity.
-func (rc *realCluster) GetNodeStats(req NodeRequest) (map[string]StatBundle, time.Duration, error) {
+func (rc *realModel) GetNodeStats(req NodeRequest) (map[string]StatBundle, time.Duration, error) {
 	rc.lock.RLock()
 	defer rc.lock.RUnlock()
 	node, ok := rc.Nodes[req.NodeName]
@@ -446,7 +447,7 @@ func (rc *realCluster) GetNodeStats(req NodeRequest) (map[string]StatBundle, tim
 }
 
 // getNamespaceStats extracts the derived stats and uptime for a Namespace entity.
-func (rc *realCluster) GetNamespaceStats(req NamespaceRequest) (map[string]StatBundle, time.Duration, error) {
+func (rc *realModel) GetNamespaceStats(req NamespaceRequest) (map[string]StatBundle, time.Duration, error) {
 	rc.lock.RLock()
 	defer rc.lock.RUnlock()
 	ns, ok := rc.Namespaces[req.NamespaceName]
@@ -458,7 +459,7 @@ func (rc *realCluster) GetNamespaceStats(req NamespaceRequest) (map[string]StatB
 }
 
 // getPodStats extracts the derived stats and uptime for a Pod entity.
-func (rc *realCluster) GetPodStats(req PodRequest) (map[string]StatBundle, time.Duration, error) {
+func (rc *realModel) GetPodStats(req PodRequest) (map[string]StatBundle, time.Duration, error) {
 	rc.lock.RLock()
 	defer rc.lock.RUnlock()
 	ns, ok := rc.Namespaces[req.NamespaceName]
@@ -475,7 +476,7 @@ func (rc *realCluster) GetPodStats(req PodRequest) (map[string]StatBundle, time.
 }
 
 // getPodContainerStats extracts the derived stats and uptime for a Pod Container entity.
-func (rc *realCluster) GetPodContainerStats(req PodContainerRequest) (map[string]StatBundle, time.Duration, error) {
+func (rc *realModel) GetPodContainerStats(req PodContainerRequest) (map[string]StatBundle, time.Duration, error) {
 	rc.lock.RLock()
 	defer rc.lock.RUnlock()
 	ns, ok := rc.Namespaces[req.NamespaceName]
@@ -497,7 +498,7 @@ func (rc *realCluster) GetPodContainerStats(req PodContainerRequest) (map[string
 }
 
 // getFreeContainerStats extracts the derived stats and uptime for a Pod Container entity.
-func (rc *realCluster) GetFreeContainerStats(req FreeContainerRequest) (map[string]StatBundle, time.Duration, error) {
+func (rc *realModel) GetFreeContainerStats(req FreeContainerRequest) (map[string]StatBundle, time.Duration, error) {
 	rc.lock.RLock()
 	defer rc.lock.RUnlock()
 	node, ok := rc.Nodes[req.NodeName]

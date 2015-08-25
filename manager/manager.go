@@ -48,13 +48,13 @@ type Manager interface {
 	SinkUris() Uris
 
 	// Get a reference to the cluster entity of the model, if it exists.
-	GetCluster() model.Cluster
+	GetModel() model.Model
 }
 
 type realManager struct {
 	sources      []source_api.Source
 	cache        cache.Cache
-	model        model.Cluster
+	model        model.Model
 	sinkManager  sinks.ExternalSinkManager
 	sinkUris     Uris
 	lastSync     time.Time
@@ -69,15 +69,15 @@ type syncData struct {
 }
 
 func NewManager(sources []source_api.Source, sinkManager sinks.ExternalSinkManager, res, bufferDuration time.Duration, c cache.Cache, useModel bool, modelRes time.Duration) (Manager, error) {
-	var newCluster model.Cluster = nil
+	var newModel model.Model = nil
 	if useModel {
-		newCluster = model.NewCluster(modelRes)
+		newModel = model.NewModel(modelRes)
 	}
 	return &realManager{
 		sources:      sources,
 		sinkManager:  sinkManager,
 		cache:        c,
-		model:        newCluster,
+		model:        newModel,
 		lastSync:     time.Now(),
 		resolution:   res,
 		decoder:      sink_api.NewDecoder(),
@@ -85,7 +85,7 @@ func NewManager(sources []source_api.Source, sinkManager sinks.ExternalSinkManag
 	}, nil
 }
 
-func (rm *realManager) GetCluster() model.Cluster {
+func (rm *realManager) GetModel() model.Model {
 	return rm.model
 }
 

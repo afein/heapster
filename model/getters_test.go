@@ -24,7 +24,7 @@ import (
 // TestGetClusterMetric tests all flows of GetClusterMetric.
 func TestGetClusterMetric(t *testing.T) {
 	var (
-		cluster      = newRealCluster(time.Minute)
+		cluster      = newRealModel(time.Minute)
 		source_cache = cacheFactory()
 		assert       = assert.New(t)
 		zeroTime     = time.Time{}
@@ -68,7 +68,7 @@ func TestGetClusterMetric(t *testing.T) {
 func TestGetNodeMetric(t *testing.T) {
 	var (
 		zeroTime     = time.Time{}
-		cluster      = newRealCluster(time.Minute)
+		cluster      = newRealModel(time.Minute)
 		source_cache = cacheFactory()
 		assert       = assert.New(t)
 		hostname     = "hostname3"
@@ -134,7 +134,7 @@ func TestGetNodeMetric(t *testing.T) {
 func TestGetNamespaceMetric(t *testing.T) {
 	var (
 		zeroTime     = time.Time{}
-		cluster      = newRealCluster(time.Minute)
+		cluster      = newRealModel(time.Minute)
 		source_cache = cacheFactory()
 		assert       = assert.New(t)
 		namespace    = "test"
@@ -200,7 +200,7 @@ func TestGetNamespaceMetric(t *testing.T) {
 func TestGetPodMetric(t *testing.T) {
 	var (
 		zeroTime     = time.Time{}
-		cluster      = newRealCluster(time.Minute)
+		cluster      = newRealModel(time.Minute)
 		source_cache = cacheFactory()
 		assert       = assert.New(t)
 		namespace    = "test"
@@ -283,7 +283,7 @@ func TestGetPodMetric(t *testing.T) {
 func TestGetBatchPodMetric(t *testing.T) {
 	var (
 		zeroTime     = time.Time{}
-		cluster      = newRealCluster(time.Minute)
+		cluster      = newRealModel(time.Minute)
 		source_cache = cacheFactory()
 		assert       = assert.New(t)
 		namespace    = "test"
@@ -340,7 +340,7 @@ func TestGetBatchPodMetric(t *testing.T) {
 func TestGetPodContainerMetric(t *testing.T) {
 	var (
 		zeroTime     = time.Time{}
-		cluster      = newRealCluster(time.Minute)
+		cluster      = newRealModel(time.Minute)
 		source_cache = cacheFactory()
 		assert       = assert.New(t)
 		namespace    = "test"
@@ -440,7 +440,7 @@ func TestGetPodContainerMetric(t *testing.T) {
 func TestGetFreeContainerMetric(t *testing.T) {
 	var (
 		zeroTime     = time.Time{}
-		cluster      = newRealCluster(time.Minute)
+		cluster      = newRealModel(time.Minute)
 		source_cache = cacheFactory()
 		assert       = assert.New(t)
 		node         = "hostname2"
@@ -521,7 +521,7 @@ func TestGetFreeContainerMetric(t *testing.T) {
 //TestGetNodes tests the flow of GetNodes.
 func TestGetNodes(t *testing.T) {
 	var (
-		cluster      = newRealCluster(time.Minute)
+		cluster      = newRealModel(time.Minute)
 		source_cache = cacheFactory()
 		assert       = assert.New(t)
 	)
@@ -540,7 +540,7 @@ func TestGetNodes(t *testing.T) {
 //TestGetNodePods tests the flow of GetNodePods.
 func TestGetNodePods(t *testing.T) {
 	var (
-		cluster      = newRealCluster(time.Minute)
+		cluster      = newRealModel(time.Minute)
 		source_cache = cacheFactory()
 		assert       = assert.New(t)
 	)
@@ -559,7 +559,7 @@ func TestGetNodePods(t *testing.T) {
 //TestGetNamespaces tests the flow of GetNamespaces.
 func TestGetNamespaces(t *testing.T) {
 	var (
-		cluster      = newRealCluster(time.Minute)
+		cluster      = newRealModel(time.Minute)
 		source_cache = cacheFactory()
 		assert       = assert.New(t)
 	)
@@ -578,7 +578,7 @@ func TestGetNamespaces(t *testing.T) {
 //TestGetPods tests the flow of GetPods.
 func TestGetPods(t *testing.T) {
 	var (
-		cluster      = newRealCluster(time.Minute)
+		cluster      = newRealModel(time.Minute)
 		source_cache = cacheFactory()
 		assert       = assert.New(t)
 	)
@@ -601,7 +601,7 @@ func TestGetPods(t *testing.T) {
 //TestGetPodContainers tests the flow of GetPodContainers.
 func TestGetPodContainers(t *testing.T) {
 	var (
-		cluster      = newRealCluster(time.Minute)
+		cluster      = newRealModel(time.Minute)
 		source_cache = cacheFactory()
 		assert       = assert.New(t)
 	)
@@ -628,7 +628,7 @@ func TestGetPodContainers(t *testing.T) {
 //TestGetFreeContainers tests the flow of GetFreeContainers.
 func TestGetFreeContainers(t *testing.T) {
 	var (
-		cluster      = newRealCluster(time.Minute)
+		cluster      = newRealModel(time.Minute)
 		source_cache = cacheFactory()
 		assert       = assert.New(t)
 	)
@@ -651,7 +651,7 @@ func TestGetFreeContainers(t *testing.T) {
 // TestGetAvailableMetrics tests the flow of GetAvailableMetrics.
 func TestGetAvailableMetrics(t *testing.T) {
 	var (
-		cluster      = newRealCluster(time.Minute)
+		cluster      = newRealModel(time.Minute)
 		source_cache = cacheFactory()
 		assert       = assert.New(t)
 	)
@@ -670,7 +670,7 @@ func TestGetAvailableMetrics(t *testing.T) {
 // TestGetClusterStats tests all flows of GetClusterStats.
 func TestGetClusterStats(t *testing.T) {
 	var (
-		cluster      = newRealCluster(time.Minute)
+		cluster      = newRealModel(time.Minute)
 		source_cache = cacheFactory()
 		assert       = assert.New(t)
 	)
@@ -698,7 +698,7 @@ func TestGetClusterStats(t *testing.T) {
 // TestGetNodeStats tests all flows of GetNodeStats.
 func TestGetNodeStats(t *testing.T) {
 	var (
-		cluster      = newRealCluster(time.Minute)
+		cluster      = newRealModel(time.Minute)
 		source_cache = cacheFactory()
 		assert       = assert.New(t)
 	)
@@ -727,7 +727,7 @@ func TestGetNodeStats(t *testing.T) {
 // TestGetNamespaceStats tests all flows of GetNamespaceStats.
 func TestGetNamespaceStats(t *testing.T) {
 	var (
-		cluster      = newRealCluster(time.Minute)
+		cluster      = newRealModel(time.Minute)
 		source_cache = cacheFactory()
 		assert       = assert.New(t)
 	)
@@ -756,7 +756,7 @@ func TestGetNamespaceStats(t *testing.T) {
 // TestGetPodStats tests all flows of GetPodStats.
 func TestGetPodStats(t *testing.T) {
 	var (
-		cluster      = newRealCluster(time.Minute)
+		cluster      = newRealModel(time.Minute)
 		source_cache = cacheFactory()
 		assert       = assert.New(t)
 	)
@@ -801,7 +801,7 @@ func TestGetPodStats(t *testing.T) {
 // TestGetPodContainerStats tests all flows of GetPodContainerStats.
 func TestGetPodContainerStats(t *testing.T) {
 	var (
-		cluster      = newRealCluster(time.Minute)
+		cluster      = newRealModel(time.Minute)
 		source_cache = cacheFactory()
 		assert       = assert.New(t)
 	)
@@ -854,7 +854,7 @@ func TestGetPodContainerStats(t *testing.T) {
 // TestGetFreeContainerStats tests all flows of GetFreeContainerStats.
 func TestGetFreeContainerStats(t *testing.T) {
 	var (
-		cluster      = newRealCluster(time.Minute)
+		cluster      = newRealModel(time.Minute)
 		source_cache = cacheFactory()
 		assert       = assert.New(t)
 	)

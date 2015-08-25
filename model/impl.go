@@ -26,29 +26,29 @@ import (
 	"k8s.io/heapster/store/statstore"
 )
 
-// NewCluster returns a new Cluster.
+// NewModel returns a new Model.
 // Receives a DayStore constructor function and a Duration resolution for stored data.
-func NewCluster(resolution time.Duration) Cluster {
-	return newRealCluster(resolution)
+func NewModel(resolution time.Duration) Model {
+	return newRealModel(resolution)
 }
 
-// newRealCluster returns a realCluster, given a DayStore constructor and a Duration resolution.
-func newRealCluster(resolution time.Duration) *realCluster {
+// newRealModel returns a realModel, given a DayStore constructor and a Duration resolution.
+func newRealModel(resolution time.Duration) *realModel {
 	cinfo := ClusterInfo{
 		InfoType:   newInfoType(nil, nil, nil),
 		Namespaces: make(map[string]*NamespaceInfo),
 		Nodes:      make(map[string]*NodeInfo),
 	}
-	cluster := &realCluster{
+	model := &realModel{
 		timestamp:   time.Time{},
 		ClusterInfo: cinfo,
 		resolution:  resolution,
 	}
-	return cluster
+	return model
 }
 
-// updateTime updates the Cluster timestamp to the specified time.
-func (rc *realCluster) updateTime(new_time time.Time) {
+// updateTime updates the Model timestamp to the specified time.
+func (rc *realModel) updateTime(new_time time.Time) {
 	if new_time.Equal(time.Time{}) {
 		return
 	}
@@ -60,7 +60,7 @@ func (rc *realCluster) updateTime(new_time time.Time) {
 // addNode creates or finds a NodeInfo element for the provided (internal) hostname.
 // addNode returns a pointer to the NodeInfo element that was created or found.
 // addNode assumes an appropriate lock is already taken by the caller.
-func (rc *realCluster) addNode(hostname string) *NodeInfo {
+func (rc *realModel) addNode(hostname string) *NodeInfo {
 	var node_ptr *NodeInfo
 
 	if val, ok := rc.Nodes[hostname]; ok {
@@ -83,7 +83,7 @@ func (rc *realCluster) addNode(hostname string) *NodeInfo {
 // addNamespace creates or finds a NamespaceInfo element for the provided namespace.
 // addNamespace returns a pointer to the NamespaceInfo element that was created or found.
 // addNamespace assumes an appropriate lock is already taken by the caller.
-func (rc *realCluster) addNamespace(name string) *NamespaceInfo {
+func (rc *realModel) addNamespace(name string) *NamespaceInfo {
 	var namespace_ptr *NamespaceInfo
 
 	if val, ok := rc.Namespaces[name]; ok {
@@ -104,7 +104,7 @@ func (rc *realCluster) addNamespace(name string) *NamespaceInfo {
 // addPod creates or finds a PodInfo element under the provided NodeInfo and NamespaceInfo.
 // addPod returns a pointer to the PodInfo element that was created or found.
 // addPod assumes an appropriate lock is already taken by the caller.
-func (rc *realCluster) addPod(pod_name string, pod_uid string, namespace *NamespaceInfo, node *NodeInfo) *PodInfo {
+func (rc *realModel) addPod(pod_name string, pod_uid string, namespace *NamespaceInfo, node *NodeInfo) *PodInfo {
 	var pod_ptr *PodInfo
 	var in_ns bool
 	var in_node bool
@@ -148,7 +148,7 @@ func (rc *realCluster) addPod(pod_name string, pod_uid string, namespace *Namesp
 // updateInfoType updates the metrics of an InfoType from a ContainerElement.
 // updateInfoType returns the latest timestamp in the resulting DayStore.
 // updateInfoType does not fail if a single ContainerMetricElement cannot be parsed.
-func (rc *realCluster) updateInfoType(info *InfoType, ce *cache.ContainerElement) (time.Time, error) {
+func (rc *realModel) updateInfoType(info *InfoType, ce *cache.ContainerElement) (time.Time, error) {
 	var latestTime time.Time
 	var err error
 
@@ -172,12 +172,11 @@ func (rc *realCluster) updateInfoType(info *InfoType, ce *cache.ContainerElement
 			continue
 		}
 		parsed += 1
+		latestTime = latestTimestamp(latestTime, stamp)
 
 		if info.Creation.Equal(time.Time{}) || cme.Spec.CreationTime.Before(info.Creation) {
 			info.Creation = cme.Spec.CreationTime
 		}
-
-		latestTime = latestTimestamp(latestTime, stamp)
 	}
 
 	// Return the latest error if we were unable to process any CME completely
@@ -190,7 +189,7 @@ func (rc *realCluster) updateInfoType(info *InfoType, ce *cache.ContainerElement
 // addMetricToMap adds a new metric (time-value pair) to a map of DayStore.
 // addMetricToMap accepts as arguments the metric name, timestamp, value and the DayStore map.
 // The timestamp argument needs to be already rounded to the cluster resolution.
-func (rc *realCluster) addMetricToMap(metric string, timestamp time.Time, value uint64, dict map[string]*daystore.DayStore) error {
+func (rc *realModel) addMetricToMap(metric string, timestamp time.Time, value uint64, dict map[string]*daystore.DayStore) error {
 	point := statstore.TimePoint{
 		Timestamp: timestamp,
 		Value:     value,
@@ -215,7 +214,7 @@ func (rc *realCluster) addMetricToMap(metric string, timestamp time.Time, value 
 // parseMetric populates a map[string]*DayStore from a ContainerMetricElement.
 // parseMetric returns the ContainerMetricElement timestamp, iff successful.
 // TODO(afein): handle limits as constants
-func (rc *realCluster) parseMetric(cme *cache.ContainerMetricElement, dict map[string]*daystore.DayStore, context map[string]*statstore.TimePoint) (time.Time, error) {
+func (rc *realModel) parseMetric(cme *cache.ContainerMetricElement, dict map[string]*daystore.DayStore, context map[string]*statstore.TimePoint) (time.Time, error) {
 	zeroTime := time.Time{}
 	if cme == nil {
 		return zeroTime, fmt.Errorf("cannot parse nil ContainerMetricElement")
@@ -324,12 +323,12 @@ func (rc *realCluster) parseMetric(cme *cache.ContainerMetricElement, dict map[s
 }
 
 // Update populates the data structure from a cache.
-func (rc *realCluster) Update(c cache.Cache) error {
+func (rc *realModel) Update(c cache.Cache) error {
 	var zero time.Time
 	latest_time := rc.timestamp
 	glog.V(2).Infoln("Model Update operation started")
 
-	// Invoke cache methods using the Cluster timestamp
+	// Invoke cache methods using the Model timestamp
 	nodes := c.GetNodes(rc.timestamp, zero)
 	for _, node := range nodes {
 		timestamp, err := rc.updateNode(node)
@@ -360,7 +359,7 @@ func (rc *realCluster) Update(c cache.Cache) error {
 	// Perform metrics aggregation
 	rc.aggregationStep()
 
-	// Update the Cluster timestamp to the latest time found in the new metrics
+	// Update the Model timestamp to the latest time found in the new metrics
 	rc.updateTime(latest_time)
 
 	glog.V(2).Infoln("Schema Update operation completed")
@@ -368,7 +367,7 @@ func (rc *realCluster) Update(c cache.Cache) error {
 }
 
 // updateNode updates Node-level information from a "machine"-tagged ContainerElement.
-func (rc *realCluster) updateNode(node_container *cache.ContainerElement) (time.Time, error) {
+func (rc *realModel) updateNode(node_container *cache.ContainerElement) (time.Time, error) {
 	if node_container.Name != "machine" {
 		return time.Time{}, fmt.Errorf("Received node-level container with unexpected name: %s", node_container.Name)
 	}
@@ -383,7 +382,7 @@ func (rc *realCluster) updateNode(node_container *cache.ContainerElement) (time.
 }
 
 // updatePod updates Pod-level information from a PodElement.
-func (rc *realCluster) updatePod(pod *cache.PodElement) (time.Time, error) {
+func (rc *realModel) updatePod(pod *cache.PodElement) (time.Time, error) {
 	if pod == nil {
 		return time.Time{}, fmt.Errorf("nil PodElement provided to updatePod")
 	}
@@ -416,8 +415,8 @@ func (rc *realCluster) updatePod(pod *cache.PodElement) (time.Time, error) {
 
 // updatePodContainer updates a Pod's Container-level information from a ContainerElement.
 // updatePodContainer receives a PodInfo pointer and a ContainerElement pointer.
-// Assumes Cluster lock is already taken.
-func (rc *realCluster) updatePodContainer(pod_info *PodInfo, ce *cache.ContainerElement) (time.Time, error) {
+// Assumes Model lock is already taken.
+func (rc *realModel) updatePodContainer(pod_info *PodInfo, ce *cache.ContainerElement) (time.Time, error) {
 	// Get Container pointer and update its InfoType
 	cinfo := addContainerToMap(ce.Name, pod_info.Containers)
 	latest_time, err := rc.updateInfoType(&cinfo.InfoType, ce)
@@ -425,7 +424,7 @@ func (rc *realCluster) updatePodContainer(pod_info *PodInfo, ce *cache.Container
 }
 
 // updateFreeContainer updates Free Container-level information from a ContainerElement
-func (rc *realCluster) updateFreeContainer(ce *cache.ContainerElement) (time.Time, error) {
+func (rc *realModel) updateFreeContainer(ce *cache.ContainerElement) (time.Time, error) {
 	rc.lock.Lock()
 	defer rc.lock.Unlock()
 

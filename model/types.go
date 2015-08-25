@@ -23,11 +23,11 @@ import (
 	"k8s.io/heapster/store/statstore"
 )
 
-type Cluster interface {
-	// The Update operation populates the Cluster from a cache.
+type Model interface {
+	// The Update operation populates the Model from a cache.
 	Update(cache.Cache) error
 
-	// The simple Get operations extract structural information from the Cluster.
+	// The simple Get operations extract structural information from the Model.
 	GetAvailableMetrics() []string
 	GetNodes() []EntityListEntry
 	GetNamespaces() []EntityListEntry
@@ -36,7 +36,7 @@ type Cluster interface {
 	GetNodePods(string) []EntityListEntry
 	GetFreeContainers(string) []EntityListEntry
 
-	// The GetXMetric operations extract timeseries from the Cluster.
+	// The GetXMetric operations extract timeseries from the Model.
 	// The returned time.Time values signify the latest metric timestamp in the cluster.
 	GetClusterMetric(ClusterMetricRequest) ([]statstore.TimePoint, time.Time, error)
 	GetNodeMetric(NodeMetricRequest) ([]statstore.TimePoint, time.Time, error)
@@ -55,10 +55,10 @@ type Cluster interface {
 	GetFreeContainerStats(FreeContainerRequest) (map[string]StatBundle, time.Duration, error)
 }
 
-// realCluster is an implementation of the Cluster interface.
-// timestamp marks the latest timestamp of any metric present in the realCluster.
+// realModel is an implementation of the Model interface.
+// timestamp marks the latest timestamp of any metric present in the realModel.
 // tsConstructor generates a new empty TimeStore, used for storing historical data.
-type realCluster struct {
+type realModel struct {
 	timestamp  time.Time
 	lock       sync.RWMutex
 	resolution time.Duration
