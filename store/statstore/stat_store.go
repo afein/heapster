@@ -337,10 +337,26 @@ func (ss *StatStore) Get(start, end time.Time) []TimePoint {
 
 	var result []TimePoint
 
-	if ss.IsEmpty() || (start.After(end) && end.After(time.Time{})) {
+	if start.After(end) && end.After(time.Time{}) {
 		return result
 	}
 
+	// Generate a TimePoint for the lastPut, if within range
+	low := start.Equal(time.Time{}) || start.After(ss.lastPut.stamp)
+	hi := end.Equal(time.Time{}) || !end.Before(ss.lastPut.stamp)
+	if ss.lastPut.stamp.After(time.Time{}) && low && hi {
+		newTP := TimePoint{
+			Timestamp: ss.lastPut.stamp,
+			Value:     uint64(ss.lastPut.average),
+		}
+		result = append(result, newTP)
+	}
+
+	if ss.IsEmpty() {
+		return result
+	}
+
+	// Generate TimePoints from the buckets in the buffer
 	skipped := 0
 	for elem := ss.buffer.Front(); elem != nil; elem = elem.Next() {
 		entry := elem.Value.(tpBucket)
@@ -384,8 +400,8 @@ func (ss *StatStore) Get(start, end time.Time) []TimePoint {
 		}
 		skipped += newSkip
 	}
-	return result
 
+	return result
 }
 
 // Last returns the latest TimePoint as held by lastPut,

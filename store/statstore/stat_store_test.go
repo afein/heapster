@@ -217,12 +217,15 @@ func TestGet(t *testing.T) {
 
 	// Invocation with one element in the StatStore
 	res = store.Get(zeroTime, zeroTime)
-	require.Len(res, 1)
+	require.Len(res, 2)
 	assert.Equal(res[0], TimePoint{
+		Timestamp: now.Add(time.Minute),
+		Value:     uint64(599),
+	})
+	assert.Equal(res[1], TimePoint{
 		Timestamp: now,
 		Value:     uint64(200),
 	})
-
 	// Put 1 Point in the next minute.
 	assert.NoError(store.Put(TimePoint{
 		Timestamp: now.Add(2 * time.Minute),
@@ -237,12 +240,16 @@ func TestGet(t *testing.T) {
 
 	// Invocation with two elements in the StatStore
 	res = store.Get(zeroTime, zeroTime)
-	require.Len(res, 2)
+	require.Len(res, 3)
 	assert.Equal(res[0], TimePoint{
+		Timestamp: now.Add(2 * time.Minute),
+		Value:     uint64(22),
+	})
+	assert.Equal(res[1], TimePoint{
 		Timestamp: now.Add(time.Minute),
 		Value:     uint64(600),
 	})
-	assert.Equal(res[1], TimePoint{
+	assert.Equal(res[2], TimePoint{
 		Timestamp: now,
 		Value:     uint64(200),
 	})
@@ -261,16 +268,20 @@ func TestGet(t *testing.T) {
 
 	// Invocation with three elements in the StatStore
 	res = store.Get(zeroTime, zeroTime)
-	require.Len(res, 3)
+	require.Len(res, 4)
 	assert.Equal(res[0], TimePoint{
+		Timestamp: now.Add(3 * time.Minute),
+		Value:     uint64(511),
+	})
+	assert.Equal(res[1], TimePoint{
 		Timestamp: now.Add(2 * time.Minute),
 		Value:     uint64(100),
 	})
-	assert.Equal(res[1], TimePoint{
+	assert.Equal(res[2], TimePoint{
 		Timestamp: now.Add(time.Minute),
 		Value:     uint64(600),
 	})
-	assert.Equal(res[2], TimePoint{
+	assert.Equal(res[3], TimePoint{
 		Timestamp: now,
 		Value:     uint64(200),
 	})
@@ -289,24 +300,28 @@ func TestGet(t *testing.T) {
 
 	// Invocation with a full StatStore and a multi-resolution bucket
 	res = store.Get(zeroTime, zeroTime)
-	require.Len(res, 5)
+	require.Len(res, 6)
 	assert.Equal(res[0], TimePoint{
+		Timestamp: now.Add(5 * time.Minute),
+		Value:     uint64(550),
+	})
+	assert.Equal(res[1], TimePoint{
 		Timestamp: now.Add(4 * time.Minute),
 		Value:     uint64(600),
 	})
-	assert.Equal(res[1], TimePoint{
+	assert.Equal(res[2], TimePoint{
 		Timestamp: now.Add(3 * time.Minute),
 		Value:     uint64(600),
 	})
-	assert.Equal(res[2], TimePoint{
+	assert.Equal(res[3], TimePoint{
 		Timestamp: now.Add(2 * time.Minute),
 		Value:     uint64(100),
 	})
-	assert.Equal(res[3], TimePoint{
+	assert.Equal(res[4], TimePoint{
 		Timestamp: now.Add(time.Minute),
 		Value:     uint64(600),
 	})
-	assert.Equal(res[4], TimePoint{
+	assert.Equal(res[5], TimePoint{
 		Timestamp: now,
 		Value:     uint64(200),
 	})
@@ -320,24 +335,28 @@ func TestGet(t *testing.T) {
 
 	// Invocation after one rewind
 	res = store.Get(zeroTime, zeroTime)
-	require.Len(res, 5)
+	require.Len(res, 6)
 	assert.Equal(res[0], TimePoint{
+		Timestamp: now.Add(6 * time.Minute),
+		Value:     uint64(750),
+	})
+	assert.Equal(res[1], TimePoint{
 		Timestamp: now.Add(5 * time.Minute),
 		Value:     uint64(600),
 	})
-	assert.Equal(res[1], TimePoint{
+	assert.Equal(res[2], TimePoint{
 		Timestamp: now.Add(4 * time.Minute),
 		Value:     uint64(600),
 	})
-	assert.Equal(res[2], TimePoint{
+	assert.Equal(res[3], TimePoint{
 		Timestamp: now.Add(3 * time.Minute),
 		Value:     uint64(600),
 	})
-	assert.Equal(res[3], TimePoint{
+	assert.Equal(res[4], TimePoint{
 		Timestamp: now.Add(2 * time.Minute),
 		Value:     uint64(100),
 	})
-	assert.Equal(res[4], TimePoint{
+	assert.Equal(res[5], TimePoint{
 		Timestamp: now.Add(time.Minute),
 		Value:     uint64(600),
 	})
@@ -350,24 +369,28 @@ func TestGet(t *testing.T) {
 
 	// Invocation after second rewind
 	res = store.Get(zeroTime, zeroTime)
-	require.Len(res, 5)
+	require.Len(res, 6)
 	assert.Equal(res[0], TimePoint{
+		Timestamp: now.Add(7 * time.Minute),
+		Value:     uint64(998),
+	})
+	assert.Equal(res[1], TimePoint{
 		Timestamp: now.Add(6 * time.Minute),
 		Value:     uint64(800),
 	})
-	assert.Equal(res[1], TimePoint{
+	assert.Equal(res[2], TimePoint{
 		Timestamp: now.Add(5 * time.Minute),
 		Value:     uint64(600),
 	})
-	assert.Equal(res[2], TimePoint{
+	assert.Equal(res[3], TimePoint{
 		Timestamp: now.Add(4 * time.Minute),
 		Value:     uint64(600),
 	})
-	assert.Equal(res[3], TimePoint{
+	assert.Equal(res[4], TimePoint{
 		Timestamp: now.Add(3 * time.Minute),
 		Value:     uint64(600),
 	})
-	assert.Equal(res[4], TimePoint{
+	assert.Equal(res[5], TimePoint{
 		Timestamp: now.Add(2 * time.Minute),
 		Value:     uint64(100),
 	})
@@ -426,24 +449,28 @@ func TestGet(t *testing.T) {
 
 	// Invocation after a future Put. Everything in between is placed in the last bucket
 	res = store.Get(zeroTime, zeroTime)
-	require.Len(res, 5)
+	require.Len(res, 6)
 	assert.Equal(res[0], TimePoint{
+		Timestamp: now.Add(25 * time.Minute),
+		Value:     uint64(1500),
+	})
+	assert.Equal(res[1], TimePoint{
 		Timestamp: now.Add(24 * time.Minute),
 		Value:     uint64(1000),
 	})
-	assert.Equal(res[1], TimePoint{
+	assert.Equal(res[2], TimePoint{
 		Timestamp: now.Add(23 * time.Minute),
 		Value:     uint64(1000),
 	})
-	assert.Equal(res[2], TimePoint{
+	assert.Equal(res[3], TimePoint{
 		Timestamp: now.Add(22 * time.Minute),
 		Value:     uint64(1000),
 	})
-	assert.Equal(res[3], TimePoint{
+	assert.Equal(res[4], TimePoint{
 		Timestamp: now.Add(21 * time.Minute),
 		Value:     uint64(1000),
 	})
-	assert.Equal(res[4], TimePoint{
+	assert.Equal(res[5], TimePoint{
 		Timestamp: now.Add(20 * time.Minute),
 		Value:     uint64(1000),
 	})

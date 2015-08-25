@@ -287,7 +287,7 @@ func TestDayStore(t *testing.T) {
 	assert.NoError(err)
 	assert.Equal(nf, uint64(21000))
 
-	// Get Invocation, a full hour should be available
+	// Get Invocation, a full hour should be available plus the lastPut
 	res := ds.Hour.Get(time.Time{}, time.Time{})
-	assert.Len(res, 60)
+	assert.Len(res, 61)
 }
