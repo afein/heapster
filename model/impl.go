@@ -149,15 +149,14 @@ func (rc *realCluster) addPod(pod_name string, pod_uid string, namespace *Namesp
 // updateInfoType returns the latest timestamp in the resulting DayStore.
 // updateInfoType does not fail if a single ContainerMetricElement cannot be parsed.
 func (rc *realCluster) updateInfoType(info *InfoType, ce *cache.ContainerElement) (time.Time, error) {
-	var latest_time time.Time
-	var latest_creation time.Time
+	var latestTime time.Time
 	var err error
 
 	if ce == nil {
-		return latest_time, fmt.Errorf("cannot update InfoType from nil ContainerElement")
+		return latestTime, fmt.Errorf("cannot update InfoType from nil ContainerElement")
 	}
 	if info == nil {
-		return latest_time, fmt.Errorf("cannot update a nil InfoType")
+		return latestTime, fmt.Errorf("cannot update a nil InfoType")
 	}
 
 	// call parseMetric in a time-ascending order
@@ -173,18 +172,19 @@ func (rc *realCluster) updateInfoType(info *InfoType, ce *cache.ContainerElement
 			continue
 		}
 		parsed += 1
-		latest_creation = latestTimestamp(latest_creation, cme.Spec.CreationTime)
-		latest_time = latestTimestamp(latest_time, stamp)
+
+		if info.Creation.Equal(time.Time{}) || cme.Spec.CreationTime.Before(info.Creation) {
+			info.Creation = cme.Spec.CreationTime
+		}
+
+		latestTime = latestTimestamp(latestTime, stamp)
 	}
 
-	if info.Creation.Equal(time.Time{}) {
-		info.Creation = latest_creation
-	}
 	// Return the latest error if we were unable to process any CME completely
 	if parsed == 0 {
-		return latest_time, err
+		return latestTime, err
 	}
-	return latest_time, nil
+	return latestTime, nil
 }
 
 // addMetricToMap adds a new metric (time-value pair) to a map of DayStore.
@@ -202,24 +202,7 @@ func (rc *realCluster) addMetricToMap(metric string, timestamp time.Time, value 
 			return fmt.Errorf("failed to add metric to DayStore: %s", err)
 		}
 	} else {
-		// TODO(afein): configure epsilon
-		// TODO: dynamic epsilon configuration, instead of statically allocating it during init
-		// TODO: handle epsilon for filesystem
-		epsilon := defaultEpsilon
-		switch metric {
-		case cpuLimit:
-			epsilon = cpuLimitEpsilon
-		case cpuUsage:
-			epsilon = cpuUsageEpsilon
-		case memLimit:
-			epsilon = memLimitEpsilon
-		case memUsage:
-			epsilon = memUsageEpsilon
-		case memWorking:
-			epsilon = memWorkingEpsilon
-		}
-
-		new_ts := daystore.NewDayStore(uint64(epsilon), rc.resolution)
+		new_ts := daystore.NewDayStore(epsilonFromMetric(metric), rc.resolution)
 		err := new_ts.Put(point)
 		if err != nil {
 			return fmt.Errorf("failed to add metric to DayStore: %s", err)
@@ -344,14 +327,12 @@ func (rc *realCluster) parseMetric(cme *cache.ContainerMetricElement, dict map[s
 func (rc *realCluster) Update(c cache.Cache) error {
 	var zero time.Time
 	latest_time := rc.timestamp
-	glog.V(2).Infoln("Schema Update operation started")
+	glog.V(2).Infoln("Model Update operation started")
 
 	// Invoke cache methods using the Cluster timestamp
-	// Iterate through the results in time-ascending order to maintain the context for cumulative metrics
-
 	nodes := c.GetNodes(rc.timestamp, zero)
-	for i := len(nodes) - 1; i >= 0; i-- {
-		timestamp, err := rc.updateNode(nodes[i])
+	for _, node := range nodes {
+		timestamp, err := rc.updateNode(node)
 		if err != nil {
 			return fmt.Errorf("Failed to Update Node Information: %s", err)
 		}

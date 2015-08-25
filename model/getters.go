@@ -241,7 +241,7 @@ func makeEntityListEntry(name string, entities map[string]*daystore.DayStore) En
 		newListEntry.CPUUsage = uint64(0)
 	} else {
 		lastHourCPU, err := cpu.Hour.Last()
-		if err == nil {
+		if err != nil {
 			newListEntry.CPUUsage = uint64(0)
 		} else {
 			newListEntry.CPUUsage = lastHourCPU.Value
@@ -253,7 +253,7 @@ func makeEntityListEntry(name string, entities map[string]*daystore.DayStore) En
 		newListEntry.MemUsage = uint64(0)
 	} else {
 		lastHourMem, err := mem.Hour.Last()
-		if err == nil {
+		if err != nil {
 			newListEntry.MemUsage = uint64(0)
 		} else {
 			newListEntry.MemUsage = lastHourMem.Value

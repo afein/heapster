@@ -157,13 +157,13 @@ func TestAddMetricToMapExistingKey(t *testing.T) {
 
 	ts := *metrics[new_metric_name]
 	results := ts.Hour.Get(zeroTime, zeroTime)
-	require.Len(results, 0)
+	require.Len(results, 1)
 
 	// Second Call: addMetricToMap for an existing key, same time
 	new_value := uint64(1234567890)
 	assert.NoError(cluster.addMetricToMap(new_metric_name, stamp, new_value, metrics))
 
-	require.Len(results, 0)
+	require.Len(results, 1)
 
 	// Second Call: addMetricToMap for an existing key, new time
 	new_value = uint64(617283996)
@@ -172,11 +172,11 @@ func TestAddMetricToMapExistingKey(t *testing.T) {
 
 	ts = *metrics[new_metric_name]
 	results = ts.Hour.Get(zeroTime, zeroTime)
-	require.Len(results, 20)
+	require.Len(results, 21)
 	assert.Equal(results[0].Timestamp, stamp.Add(19*time.Minute))
 	assert.Equal(roundToEpsilon(results[0].Value, defaultEpsilon), roundToEpsilon(1234567890, defaultEpsilon))
-	assert.Equal(results[19].Timestamp, stamp)
-	assert.Equal(roundToEpsilon(results[19].Value, defaultEpsilon), roundToEpsilon(1234567890, defaultEpsilon))
+	assert.Equal(results[20].Timestamp, stamp)
+	assert.Equal(roundToEpsilon(results[20].Value, defaultEpsilon), roundToEpsilon(1234567890, defaultEpsilon))
 
 	// Second Call: addMetricToMap for an existing key, same time
 	assert.NoError(cluster.addMetricToMap(new_metric_name, later_stamp, new_value, metrics))
@@ -599,12 +599,12 @@ func TestUpdate(t *testing.T) {
 	verifyCacheFactoryCluster(&cluster.ClusterInfo, t)
 
 	// Assert Node Metric aggregation
-	assert.NotEmpty(cluster.Nodes)
-	assert.NotEmpty(cluster.Metrics)
-	assert.NotNil(cluster.Metrics[memWorking])
+	require.NotEmpty(cluster.Nodes)
+	require.NotEmpty(cluster.Metrics)
+	require.NotNil(cluster.Metrics[memWorking])
 	mem_work_ts := *(cluster.Metrics[memWorking])
 	actual := mem_work_ts.Hour.Get(zeroTime, zeroTime)
-	require.Len(actual, 10)
+	require.Len(actual, 6)
 	// Datapoint present in both nodes,
 	host2 := roundToEpsilon(memWorkingEpsilon, 1062)
 	host3 := roundToEpsilon(memWorkingEpsilon, 602)
@@ -612,10 +612,10 @@ func TestUpdate(t *testing.T) {
 	// Datapoint present in only one node
 	assert.Equal(actual[0].Value, uint64(602))
 
-	assert.NotNil(cluster.Metrics[memUsage])
+	require.NotNil(cluster.Metrics[memUsage])
 	mem_usage_ts := *(cluster.Metrics[memUsage])
 	actual = mem_usage_ts.Hour.Get(zeroTime, zeroTime)
-	require.Len(actual, 2)
+	require.Len(actual, 6)
 	// Datapoint present in both nodes, added up to 10000
 	assert.Equal(actual[1].Value, uint64(10000))
 	// Datapoint present in only one node
@@ -806,7 +806,7 @@ func podElementFactory() *cache.PodElement {
 // The cache contains 2 pods, one with two containers and one without any containers.
 // The cache also contains a free container and a "machine"-tagged container.
 func cacheFactory() cache.Cache {
-	source_cache := cache.NewCache(24*time.Hour, time.Hour)
+	source_cache := cache.NewCache(10*time.Minute, time.Minute)
 
 	// Generate Container CMEs - same timestamp for aggregation
 	cme_1 := cmeFactory()
@@ -833,8 +833,8 @@ func cacheFactory() cache.Cache {
 
 	// Genete a generic container further than one resolution in the future
 	cme_5 := cmeFactory()
-	cme_5.Stats.Timestamp = cme_4.Stats.Timestamp.Add(10 * time.Minute)
-	cme_5.Stats.Cpu.Usage.Total = cme_4.Stats.Cpu.Usage.Total + uint64(3600000000000)
+	cme_5.Stats.Timestamp = cme_4.Stats.Timestamp.Add(4 * time.Minute)
+	cme_5.Stats.Cpu.Usage.Total = cme_4.Stats.Cpu.Usage.Total + uint64(4*360000000000)
 
 	// Generate a flush CME for cme_5 and cme_4
 	cme_5flush := cmeFactory()

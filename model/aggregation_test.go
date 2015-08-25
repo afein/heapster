@@ -210,11 +210,12 @@ func TestAggregateMetricsNormal(t *testing.T) {
 	targetMemTS := targetInfo.Metrics[memUsage]
 	res := targetMemTS.Hour.Get(time.Time{}, time.Time{})
 
-	require.Len(res, 49)
-	assert.Equal(res[0].Value, uint64(12000))
-	assert.Equal(res[8].Value, uint64(12000))
-	assert.Equal(res[9].Value, uint64(6500))
-	assert.Equal(res[28].Value, uint64(6500))
-	assert.Equal(res[29].Value, uint64(7000))
-	assert.Equal(res[48].Value, uint64(7000))
+	require.Len(res, 51)
+	assert.Equal(res[0].Value, uint64(18000))
+	assert.Equal(res[1].Value, uint64(12000))
+	assert.Equal(res[10].Value, uint64(12000))
+	assert.Equal(res[11].Value, uint64(6500))
+	assert.Equal(res[30].Value, uint64(6500))
+	assert.Equal(res[31].Value, uint64(7000))
+	assert.Equal(res[50].Value, uint64(7000))
 }

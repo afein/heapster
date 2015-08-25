@@ -745,7 +745,7 @@ func TestGetNamespaceStats(t *testing.T) {
 	res, uptime, err = cluster.GetNamespaceStats(NamespaceRequest{
 		NamespaceName: "test",
 	})
-	assert.Len(res, 6)
+	assert.Len(res, 7)
 	assert.Equal(res[memUsage].Minute.Average, res[memUsage].Minute.Max)
 	assert.Equal(res[memUsage].Minute.Average, res[memUsage].Minute.Percentile)
 	assert.NotEqual(res[memUsage].Minute.Average, uint64(0))
@@ -785,7 +785,7 @@ func TestGetPodStats(t *testing.T) {
 		NamespaceName: "test",
 		PodName:       "pod1",
 	})
-	assert.Len(res, 7)
+	assert.Len(res, 6)
 	assert.Equal(res[memUsage].Minute.Average, res[memUsage].Minute.Max)
 	assert.Equal(res[memUsage].Minute.Average, res[memUsage].Minute.Percentile)
 	assert.NotEqual(res[memUsage].Minute.Average, uint64(0))

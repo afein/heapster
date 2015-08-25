@@ -195,3 +195,22 @@ func getStats(info InfoType) map[string]StatBundle {
 	}
 	return res
 }
+
+func epsilonFromMetric(metric string) uint64 {
+	// TODO: dynamic epsilon configuration, instead of statically allocating it during init
+	// TODO(afein): handle FS epsilon
+	switch metric {
+	case cpuLimit:
+		return cpuLimitEpsilon
+	case cpuUsage:
+		return cpuUsageEpsilon
+	case memLimit:
+		return memLimitEpsilon
+	case memUsage:
+		return memUsageEpsilon
+	case memWorking:
+		return memWorkingEpsilon
+	default:
+		return defaultEpsilon
+	}
+}

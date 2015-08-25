@@ -201,27 +201,32 @@ func (rc *realCluster) aggregateMetrics(target *InfoType, sources []*InfoType) e
 
 	// Put all the new values in the DayStores under target
 	for key, tpSlice := range newMetrics {
-		_, ok := target.Metrics[key]
+		ds, ok := target.Metrics[key]
 		if !ok {
-			// Metric does not exist on target InfoType, create TimeStore
-			// TODO(afein): configure epsilon
-			newDS := daystore.NewDayStore(100, rc.resolution)
+			// Metric does not exist on target InfoType, create DayStore
+			newDS := daystore.NewDayStore(epsilonFromMetric(key), rc.resolution)
 			target.Metrics[key] = newDS
+			ds = newDS
 		}
 		// Put the added TimeSeries in the corresponding DayStore, in time-ascending order
 		for i := len(tpSlice) - 1; i >= 0; i-- {
-			(*target.Metrics[key]).Put(tpSlice[i])
+			err := ds.Put(tpSlice[i])
+			if err != nil {
+				return fmt.Errorf("error while performing aggregation: %s", err)
+			}
 		}
 	}
 
-	// Set the uptime to the longest one
-	earliestCreation := time.Now().Add(240000 * time.Hour)
-	for _, info := range sources {
+	// Set the creation time of the entity to the earliest one that we have had data for
+	earliestCreation := sources[0].Creation
+	for _, info := range sources[1:] {
 		if info.Creation.Before(earliestCreation) {
 			earliestCreation = info.Creation
 		}
 	}
-	target.Creation = earliestCreation
+	if earliestCreation.Before(target.Creation) || target.Creation.Equal(time.Time{}) {
+		target.Creation = earliestCreation
+	}
 
 	return nil
 }
