@@ -29,62 +29,62 @@ import (
 // The normal flow is tested through TestUpdate.
 func TestAggregateNodeMetricsEmpty(t *testing.T) {
 	var (
-		cluster = newRealModel(time.Minute)
-		c       = make(chan error)
-		assert  = assert.New(t)
+		model  = newRealModel(time.Minute)
+		c      = make(chan error)
+		assert = assert.New(t)
 	)
 
-	// Invocation with empty cluster
-	go cluster.aggregateNodeMetrics(c)
+	// Invocation with empty model
+	go model.aggregateNodeMetrics(c)
 	assert.NoError(<-c)
-	assert.Empty(cluster.Nodes)
-	assert.Empty(cluster.Metrics)
+	assert.Empty(model.Nodes)
+	assert.Empty(model.Metrics)
 }
 
 // TestAggregateKubeMetricsError tests the error flows of aggregateKubeMetrics.
 // The normal flow is tested through TestUpdate.
 func TestAggregateKubeMetricsEmpty(t *testing.T) {
 	var (
-		cluster = newRealModel(time.Minute)
-		c       = make(chan error)
-		assert  = assert.New(t)
+		model  = newRealModel(time.Minute)
+		c      = make(chan error)
+		assert = assert.New(t)
 	)
 
-	// Invocation with empty cluster
-	go cluster.aggregateKubeMetrics(c)
+	// Invocation with empty model
+	go model.aggregateKubeMetrics(c)
 	assert.NoError(<-c)
-	assert.Empty(cluster.Namespaces)
+	assert.Empty(model.Namespaces)
 
 	// Error propagation from aggregateNamespaceMetrics
-	cluster.Namespaces["default"] = nil
-	go cluster.aggregateKubeMetrics(c)
+	model.Namespaces["default"] = nil
+	go model.aggregateKubeMetrics(c)
 	assert.Error(<-c)
-	assert.NotEmpty(cluster.Namespaces)
+	assert.NotEmpty(model.Namespaces)
 }
 
 // TestAggregateNamespaceMetrics tests the error flows of aggregateNamespaceMetrics.
 // The normal flow is tested through TestUpdate.
 func TestAggregateNamespaceMetricsError(t *testing.T) {
 	var (
-		cluster = newRealModel(time.Minute)
-		c       = make(chan error)
-		assert  = assert.New(t)
+		model  = newRealModel(time.Minute)
+		c      = make(chan error)
+		assert = assert.New(t)
 	)
 
 	// Invocation with nil namespace
-	go cluster.aggregateNamespaceMetrics(nil, c)
+	go model.aggregateNamespaceMetrics(nil, c)
 	assert.Error(<-c)
-	assert.Empty(cluster.Namespaces)
+	assert.Empty(model.Namespaces)
 
 	// Invocation for a namespace with no pods
-	ns := cluster.addNamespace("default")
-	go cluster.aggregateNamespaceMetrics(ns, c)
+	ns := model.addNamespace("default")
+	go model.aggregateNamespaceMetrics(ns, c)
 	assert.NoError(<-c)
 	assert.Len(ns.Pods, 0)
 
 	// Error propagation from aggregatePodMetrics
 	ns.Pods["pod1"] = nil
-	go cluster.aggregateNamespaceMetrics(ns, c)
+	go model.aggregateNamespaceMetrics(ns, c)
 	assert.Error(<-c)
 }
 
@@ -92,33 +92,33 @@ func TestAggregateNamespaceMetricsError(t *testing.T) {
 // The normal flow is tested through TestUpdate.
 func TestAggregatePodMetricsError(t *testing.T) {
 	var (
-		cluster = newRealModel(time.Minute)
-		c       = make(chan error)
-		assert  = assert.New(t)
+		model  = newRealModel(time.Minute)
+		c      = make(chan error)
+		assert = assert.New(t)
 	)
-	ns := cluster.addNamespace("default")
-	node := cluster.addNode("newnode")
-	pod := cluster.addPod("pod1", "uid111", ns, node)
+	ns := model.addNamespace("default")
+	node := model.addNode("newnode")
+	pod := model.addPod("pod1", "uid111", ns, node)
 
 	// Invocation with nil pod
-	go cluster.aggregatePodMetrics(nil, c)
+	go model.aggregatePodMetrics(nil, c)
 	assert.Error(<-c)
 
 	// Invocation with empty pod
-	go cluster.aggregatePodMetrics(pod, c)
+	go model.aggregatePodMetrics(pod, c)
 	assert.NoError(<-c)
 
 	// Invocation with a normal pod
 	addContainerToMap("new_container", pod.Containers)
 	addContainerToMap("new_container2", pod.Containers)
-	go cluster.aggregatePodMetrics(pod, c)
+	go model.aggregatePodMetrics(pod, c)
 	assert.NoError(<-c)
 }
 
 // TestAggregateMetricsError tests the error flows of aggregateMetrics.
 func TestAggregateMetricsError(t *testing.T) {
 	var (
-		cluster    = newRealModel(time.Minute)
+		model      = newRealModel(time.Minute)
 		targetInfo = InfoType{
 			Metrics: make(map[string]*daystore.DayStore),
 			Labels:  make(map[string]string),
@@ -132,25 +132,25 @@ func TestAggregateMetricsError(t *testing.T) {
 
 	// Invocation with nil first argument
 	sources := []*InfoType{&srcInfo}
-	assert.Error(cluster.aggregateMetrics(nil, sources))
+	assert.Error(model.aggregateMetrics(nil, sources))
 
 	// Invocation with empty second argument
 	sources = []*InfoType{}
-	assert.Error(cluster.aggregateMetrics(&targetInfo, sources))
+	assert.Error(model.aggregateMetrics(&targetInfo, sources))
 
 	// Invocation with a nil element in the second argument
 	sources = []*InfoType{&srcInfo, nil}
-	assert.Error(cluster.aggregateMetrics(&targetInfo, sources))
+	assert.Error(model.aggregateMetrics(&targetInfo, sources))
 
 	// Invocation with the target being also part of sources
 	sources = []*InfoType{&srcInfo, &targetInfo}
-	assert.Error(cluster.aggregateMetrics(&targetInfo, sources))
+	assert.Error(model.aggregateMetrics(&targetInfo, sources))
 }
 
 // TestAggregateMetricsNormal tests the normal flows of aggregateMetrics.
 func TestAggregateMetricsNormal(t *testing.T) {
 	var (
-		cluster    = newRealModel(time.Minute)
+		model      = newRealModel(time.Minute)
 		targetInfo = InfoType{
 			Metrics: make(map[string]*daystore.DayStore),
 			Labels:  make(map[string]string),
@@ -204,7 +204,7 @@ func TestAggregateMetricsNormal(t *testing.T) {
 	sources := []*InfoType{&srcInfo1, &srcInfo2}
 
 	// Normal Invocation
-	cluster.aggregateMetrics(&targetInfo, sources)
+	model.aggregateMetrics(&targetInfo, sources)
 
 	assert.NotNil(targetInfo.Metrics[memUsage])
 	targetMemTS := targetInfo.Metrics[memUsage]

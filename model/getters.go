@@ -318,7 +318,6 @@ func (rc *realModel) GetNodePods(hostname string) []EntityListEntry {
 		}
 		res = append(res, newEntity)
 	}
-	fmt.Println(res)
 	return res
 }
 

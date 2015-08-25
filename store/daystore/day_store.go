@@ -80,6 +80,7 @@ func NewDayStore(epsilon uint64, resolution time.Duration) *DayStore {
 	hourNS := time.Hour.Nanoseconds()
 	resNS := resolution.Nanoseconds()
 	intervals := uint16(hourNS / resNS)
+
 	if hourNS%resNS != 0 {
 		intervals++
 	}

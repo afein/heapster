@@ -159,7 +159,7 @@ func TestMax(t *testing.T) {
 
 	// Put one point in the next minute.
 	// Even though the max is greater, this minute is currently in lastPut,
-	// so it is excluded from the max
+	// so it is excluded from the max.
 	assert.NoError(store.Put(TimePoint{
 		Timestamp: now.Add(3 * time.Minute),
 		Value:     uint64(511),

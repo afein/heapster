@@ -204,11 +204,10 @@ func (rc *realModel) aggregateMetrics(target *InfoType, sources []*InfoType) err
 		ds, ok := target.Metrics[key]
 		if !ok {
 			// Metric does not exist on target InfoType, create DayStore
-			ds := daystore.NewDayStore(epsilonFromMetric(key), rc.resolution)
+			ds = daystore.NewDayStore(epsilonFromMetric(key), rc.resolution)
 			target.Metrics[key] = ds
 		}
 
-		fmt.Println(tpSlice)
 		// Put the added TimeSeries in the corresponding DayStore, in time-ascending order
 		for i := len(tpSlice) - 1; i >= 0; i-- {
 			err := ds.Put(tpSlice[i])
@@ -218,7 +217,7 @@ func (rc *realModel) aggregateMetrics(target *InfoType, sources []*InfoType) err
 		}
 	}
 
-	// Set the creation time of the entity to the earliest one that we have had data for
+	// Set the creation time of the entity to the earliest one that we have had data for.
 	earliestCreation := sources[0].Creation
 	for _, info := range sources[1:] {
 		if info.Creation.Before(earliestCreation) && info.Creation.After(time.Time{}) {
