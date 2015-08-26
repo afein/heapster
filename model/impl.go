@@ -357,7 +357,7 @@ func (rc *realModel) Update(c cache.Cache) error {
 	}
 
 	// Perform metrics aggregation
-	rc.aggregationStep()
+	rc.aggregationStep(latest_time)
 
 	// Update the Model timestamp to the latest time found in the new metrics
 	rc.updateTime(latest_time)

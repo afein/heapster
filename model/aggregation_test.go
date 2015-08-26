@@ -35,7 +35,7 @@ func TestAggregateNodeMetricsEmpty(t *testing.T) {
 	)
 
 	// Invocation with empty model
-	go model.aggregateNodeMetrics(c)
+	go model.aggregateNodeMetrics(c, time.Now())
 	assert.NoError(<-c)
 	assert.Empty(model.Nodes)
 	assert.Empty(model.Metrics)
@@ -51,13 +51,13 @@ func TestAggregateKubeMetricsEmpty(t *testing.T) {
 	)
 
 	// Invocation with empty model
-	go model.aggregateKubeMetrics(c)
+	go model.aggregateKubeMetrics(c, time.Now())
 	assert.NoError(<-c)
 	assert.Empty(model.Namespaces)
 
 	// Error propagation from aggregateNamespaceMetrics
 	model.Namespaces["default"] = nil
-	go model.aggregateKubeMetrics(c)
+	go model.aggregateKubeMetrics(c, time.Now())
 	assert.Error(<-c)
 	assert.NotEmpty(model.Namespaces)
 }
@@ -72,19 +72,19 @@ func TestAggregateNamespaceMetricsError(t *testing.T) {
 	)
 
 	// Invocation with nil namespace
-	go model.aggregateNamespaceMetrics(nil, c)
+	go model.aggregateNamespaceMetrics(nil, c, time.Now())
 	assert.Error(<-c)
 	assert.Empty(model.Namespaces)
 
 	// Invocation for a namespace with no pods
 	ns := model.addNamespace("default")
-	go model.aggregateNamespaceMetrics(ns, c)
+	go model.aggregateNamespaceMetrics(ns, c, time.Now())
 	assert.NoError(<-c)
 	assert.Len(ns.Pods, 0)
 
 	// Error propagation from aggregatePodMetrics
 	ns.Pods["pod1"] = nil
-	go model.aggregateNamespaceMetrics(ns, c)
+	go model.aggregateNamespaceMetrics(ns, c, time.Now())
 	assert.Error(<-c)
 }
 
@@ -101,17 +101,17 @@ func TestAggregatePodMetricsError(t *testing.T) {
 	pod := model.addPod("pod1", "uid111", ns, node)
 
 	// Invocation with nil pod
-	go model.aggregatePodMetrics(nil, c)
+	go model.aggregatePodMetrics(nil, c, time.Now())
 	assert.Error(<-c)
 
 	// Invocation with empty pod
-	go model.aggregatePodMetrics(pod, c)
+	go model.aggregatePodMetrics(pod, c, time.Now())
 	assert.NoError(<-c)
 
 	// Invocation with a normal pod
 	addContainerToMap("new_container", pod.Containers)
 	addContainerToMap("new_container2", pod.Containers)
-	go model.aggregatePodMetrics(pod, c)
+	go model.aggregatePodMetrics(pod, c, time.Now())
 	assert.NoError(<-c)
 }
 
@@ -132,19 +132,23 @@ func TestAggregateMetricsError(t *testing.T) {
 
 	// Invocation with nil first argument
 	sources := []*InfoType{&srcInfo}
-	assert.Error(model.aggregateMetrics(nil, sources))
+	assert.Error(model.aggregateMetrics(nil, sources, time.Now()))
 
 	// Invocation with empty second argument
 	sources = []*InfoType{}
-	assert.Error(model.aggregateMetrics(&targetInfo, sources))
+	assert.Error(model.aggregateMetrics(&targetInfo, sources, time.Now()))
 
 	// Invocation with a nil element in the second argument
 	sources = []*InfoType{&srcInfo, nil}
-	assert.Error(model.aggregateMetrics(&targetInfo, sources))
+	assert.Error(model.aggregateMetrics(&targetInfo, sources, time.Now()))
 
 	// Invocation with the target being also part of sources
 	sources = []*InfoType{&srcInfo, &targetInfo}
-	assert.Error(model.aggregateMetrics(&targetInfo, sources))
+	assert.Error(model.aggregateMetrics(&targetInfo, sources, time.Now()))
+
+	// Normal Invocation with latestTime being zero
+	sources = []*InfoType{&srcInfo}
+	assert.Error(model.aggregateMetrics(&targetInfo, sources, time.Time{}))
 }
 
 // TestAggregateMetricsNormal tests the normal flows of aggregateMetrics.
@@ -199,15 +203,16 @@ func TestAggregateMetricsNormal(t *testing.T) {
 		Value:     uint64(9000),
 	})
 
-	srcInfo1.Metrics[memUsage] = newTS
-	srcInfo2.Metrics[memUsage] = newTS2
+	// Use a dummy metric to round values to the defaultEpsilon
+	srcInfo1.Metrics["dummy"] = newTS
+	srcInfo2.Metrics["dummy"] = newTS2
 	sources := []*InfoType{&srcInfo1, &srcInfo2}
 
 	// Normal Invocation
-	model.aggregateMetrics(&targetInfo, sources)
+	model.aggregateMetrics(&targetInfo, sources, now.Add(50*time.Minute))
 
-	assert.NotNil(targetInfo.Metrics[memUsage])
-	targetMemTS := targetInfo.Metrics[memUsage]
+	assert.NotNil(targetInfo.Metrics["dummy"])
+	targetMemTS := targetInfo.Metrics["dummy"]
 	res := targetMemTS.Hour.Get(time.Time{}, time.Time{})
 
 	require.Len(res, 51)

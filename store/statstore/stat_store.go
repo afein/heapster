@@ -342,12 +342,12 @@ func (ss *StatStore) Get(start, end time.Time) []TimePoint {
 	}
 
 	// Generate a TimePoint for the lastPut, if within range
-	low := start.Equal(time.Time{}) || start.After(ss.lastPut.stamp)
+	low := start.Equal(time.Time{}) || start.Before(ss.lastPut.stamp)
 	hi := end.Equal(time.Time{}) || !end.Before(ss.lastPut.stamp)
 	if ss.lastPut.stamp.After(time.Time{}) && low && hi {
 		newTP := TimePoint{
 			Timestamp: ss.lastPut.stamp,
-			Value:     uint64(ss.lastPut.average),
+			Value:     uint64(ss.lastPut.max), // expose the max to avoid conflicts when viewing derived stats
 		}
 		result = append(result, newTP)
 	}

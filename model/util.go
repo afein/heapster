@@ -71,8 +71,12 @@ func addContainerToMap(container_name string, dict map[string]*ContainerInfo) *C
 // addTimePoints returns a new TimePoint with the added Value fields
 // and the Timestamp of the first TimePoint.
 func addTimePoints(tp1 statstore.TimePoint, tp2 statstore.TimePoint) statstore.TimePoint {
+	maxTS := tp1.Timestamp
+	if maxTS.Before(tp2.Timestamp) {
+		maxTS = tp2.Timestamp
+	}
 	return statstore.TimePoint{
-		Timestamp: tp1.Timestamp,
+		Timestamp: maxTS,
 		Value:     tp1.Value + tp2.Value,
 	}
 }
@@ -107,15 +111,13 @@ func addMatchingTimeseries(left []statstore.TimePoint, right []statstore.TimePoi
 	cur_left = popTPSlice(&left)
 	cur_right = popTPSlice(&right)
 	for cur_left != nil && cur_right != nil {
+		result = append(result, addTimePoints(*cur_left, *cur_right))
 		if cur_left.Timestamp.Equal(cur_right.Timestamp) {
-			result = append(result, addTimePoints(*cur_left, *cur_right))
 			cur_left = popTPSlice(&left)
 			cur_right = popTPSlice(&right)
 		} else if cur_left.Timestamp.After(cur_right.Timestamp) {
-			result = append(result, *cur_left)
 			cur_left = popTPSlice(&left)
 		} else {
-			result = append(result, *cur_right)
 			cur_right = popTPSlice(&right)
 		}
 	}

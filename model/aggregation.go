@@ -27,17 +27,20 @@ import (
 // by Timeseries summation of the respective Metrics fields.
 // aggregationStep should be called after new data is present in the cluster,
 // but before the cluster timestamp is updated.
-func (rc *realModel) aggregationStep() error {
+
+// The latestTime argument represents the latest time of metrics found in the model,
+// which should cause all aggregated metrics to remain constant up until that time.
+func (rc *realModel) aggregationStep(latestTime time.Time) error {
 	rc.lock.Lock()
 	defer rc.lock.Unlock()
 
 	// Perform Node Metric Aggregation
 	node_c := make(chan error)
-	go rc.aggregateNodeMetrics(node_c)
+	go rc.aggregateNodeMetrics(node_c, latestTime)
 
 	// Initiate bottom-up aggregation for Kubernetes stats
 	kube_c := make(chan error)
-	go rc.aggregateKubeMetrics(kube_c)
+	go rc.aggregateKubeMetrics(kube_c, latestTime)
 
 	errs := make([]error, 2)
 	errs[0] = <-node_c
@@ -55,7 +58,7 @@ func (rc *realModel) aggregationStep() error {
 
 // aggregateNodeMetrics populates the Cluster.InfoType.Metrics field by adding up all node metrics.
 // Assumes an appropriate lock is already taken by the caller.
-func (rc *realModel) aggregateNodeMetrics(c chan error) {
+func (rc *realModel) aggregateNodeMetrics(c chan error, latestTime time.Time) {
 	if len(rc.Nodes) == 0 {
 		// Fail silently if the cluster has no nodes
 		c <- nil
@@ -66,12 +69,12 @@ func (rc *realModel) aggregateNodeMetrics(c chan error) {
 	for _, node := range rc.Nodes {
 		sources = append(sources, &(node.InfoType))
 	}
-	c <- rc.aggregateMetrics(&rc.ClusterInfo.InfoType, sources)
+	c <- rc.aggregateMetrics(&rc.ClusterInfo.InfoType, sources, latestTime)
 }
 
 // aggregateKubeMetrics initiates depth-first aggregation of Kubernetes metrics.
 // Assumes an appropriate lock is already taken by the caller.
-func (rc *realModel) aggregateKubeMetrics(c chan error) {
+func (rc *realModel) aggregateKubeMetrics(c chan error, latestTime time.Time) {
 	if len(rc.Namespaces) == 0 {
 		// Fail silently if the cluster has no namespaces
 		c <- nil
@@ -82,7 +85,7 @@ func (rc *realModel) aggregateKubeMetrics(c chan error) {
 	chans := make([]chan error, 0)
 	for _, namespace := range rc.Namespaces {
 		chans = append(chans, make(chan error))
-		go rc.aggregateNamespaceMetrics(namespace, chans[len(chans)-1])
+		go rc.aggregateNamespaceMetrics(namespace, chans[len(chans)-1], latestTime)
 	}
 
 	errs := make([]error, len(chans))
@@ -102,7 +105,7 @@ func (rc *realModel) aggregateKubeMetrics(c chan error) {
 
 // aggregateNamespaceMetrics populates a NamespaceInfo.Metrics field by aggregating all PodInfo.
 // Assumes an appropriate lock is already taken by the caller.
-func (rc *realModel) aggregateNamespaceMetrics(namespace *NamespaceInfo, c chan error) {
+func (rc *realModel) aggregateNamespaceMetrics(namespace *NamespaceInfo, c chan error, latestTime time.Time) {
 	if namespace == nil {
 		c <- fmt.Errorf("nil Namespace pointer passed for aggregation")
 		return
@@ -117,7 +120,7 @@ func (rc *realModel) aggregateNamespaceMetrics(namespace *NamespaceInfo, c chan 
 	chans := make([]chan error, 0)
 	for _, pod := range namespace.Pods {
 		chans = append(chans, make(chan error))
-		go rc.aggregatePodMetrics(pod, chans[len(chans)-1])
+		go rc.aggregatePodMetrics(pod, chans[len(chans)-1], latestTime)
 	}
 
 	errs := make([]error, len(chans))
@@ -137,12 +140,12 @@ func (rc *realModel) aggregateNamespaceMetrics(namespace *NamespaceInfo, c chan 
 	for _, pod := range namespace.Pods {
 		sources = append(sources, &(pod.InfoType))
 	}
-	c <- rc.aggregateMetrics(&namespace.InfoType, sources)
+	c <- rc.aggregateMetrics(&namespace.InfoType, sources, latestTime)
 }
 
 // aggregatePodMetrics populates a PodInfo.Metrics field by aggregating all ContainerInfo.
 // Assumes an appropriate lock is already taken by the caller.
-func (rc *realModel) aggregatePodMetrics(pod *PodInfo, c chan error) {
+func (rc *realModel) aggregatePodMetrics(pod *PodInfo, c chan error, latestTime time.Time) {
 	if pod == nil {
 		c <- fmt.Errorf("nil Pod pointer passed for aggregation")
 		return
@@ -158,13 +161,13 @@ func (rc *realModel) aggregatePodMetrics(pod *PodInfo, c chan error) {
 	for _, container := range pod.Containers {
 		sources = append(sources, &(container.InfoType))
 	}
-	c <- rc.aggregateMetrics(&pod.InfoType, sources)
+	c <- rc.aggregateMetrics(&pod.InfoType, sources, latestTime)
 }
 
 // aggregateMetrics populates an InfoType by adding metrics across a slice of InfoTypes.
 // Only metrics taken after the cluster timestamp are affected.
 // Assumes an appropriate lock is already taken by the caller.
-func (rc *realModel) aggregateMetrics(target *InfoType, sources []*InfoType) error {
+func (rc *realModel) aggregateMetrics(target *InfoType, sources []*InfoType, latestTime time.Time) error {
 	zeroTime := time.Time{}
 
 	if target == nil {
@@ -180,6 +183,10 @@ func (rc *realModel) aggregateMetrics(target *InfoType, sources []*InfoType) err
 		if source == target {
 			return fmt.Errorf("target InfoType pointer is provided as a source")
 		}
+	}
+
+	if latestTime.Equal(zeroTime) {
+		return fmt.Errorf("aggregateMetrics called with a zero latestTime argument")
 	}
 
 	// Create a map of []TimePoint as a timeseries accumulator per metric
@@ -201,23 +208,38 @@ func (rc *realModel) aggregateMetrics(target *InfoType, sources []*InfoType) err
 
 	// Put all the new values in the DayStores under target
 	for key, tpSlice := range newMetrics {
-		ds, ok := target.Metrics[key]
+		if len(tpSlice) == 0 {
+			continue
+		}
+		_, ok := target.Metrics[key]
 		if !ok {
 			// Metric does not exist on target InfoType, create DayStore
-			ds = daystore.NewDayStore(epsilonFromMetric(key), rc.resolution)
-			target.Metrics[key] = ds
+			target.Metrics[key] = daystore.NewDayStore(epsilonFromMetric(key), rc.resolution)
 		}
 
 		// Put the added TimeSeries in the corresponding DayStore, in time-ascending order
 		for i := len(tpSlice) - 1; i >= 0; i-- {
-			err := ds.Put(tpSlice[i])
+			err := target.Metrics[key].Put(tpSlice[i])
 			if err != nil {
 				return fmt.Errorf("error while performing aggregation: %s", err)
 			}
 		}
+
+		// Put a TimePoint with the latest aggregated value at the latest model resolution.
+		// Causes the DayStore to assume the aggregated metric remained constant until the -
+		// next cluster timestamp.
+		newTP := statstore.TimePoint{
+			Timestamp: latestTime,
+			Value:     tpSlice[0].Value,
+		}
+		err := target.Metrics[key].Put(newTP)
+		if err != nil {
+			return fmt.Errorf("error while performing aggregation: %s", err)
+		}
+
 	}
 
-	// Set the creation time of the entity to the earliest one that we have had data for.
+	// Set the creation time of the entity to the earliest one that we have found data for.
 	earliestCreation := sources[0].Creation
 	for _, info := range sources[1:] {
 		if info.Creation.Before(earliestCreation) && info.Creation.After(time.Time{}) {

@@ -90,7 +90,7 @@ func TestAddTimePoints(t *testing.T) {
 		assert = assert.New(t)
 	)
 	new_tp := addTimePoints(tp1, tp2)
-	assert.Equal(new_tp.Timestamp, tp1.Timestamp)
+	assert.Equal(new_tp.Timestamp, tp2.Timestamp)
 	assert.Equal(new_tp.Value, tp1.Value+tp2.Value)
 }
 
@@ -181,8 +181,10 @@ func TestAddMatchingTimeseries(t *testing.T) {
 	tps2 = []statstore.TimePoint{tp12}
 	new_ts = addMatchingTimeseries(tps1, tps2)
 	assert.Len(new_ts, 3)
-	assert.Equal(new_ts[0], tp52)
-	assert.Equal(new_ts[1], tp42)
+	assert.Equal(new_ts[0].Timestamp, tp52.Timestamp)
+	assert.Equal(new_ts[0].Value, tp52.Value+tp12.Value)
+	assert.Equal(new_ts[1].Timestamp, tp42.Timestamp)
+	assert.Equal(new_ts[1].Value, tp42.Value+tp12.Value)
 	assert.Equal(new_ts[2].Timestamp, tp11.Timestamp)
 	assert.Equal(new_ts[2].Value, tp11.Value+tp12.Value)
 
@@ -191,15 +193,26 @@ func TestAddMatchingTimeseries(t *testing.T) {
 	tps2 = []statstore.TimePoint{tp52, tp42, tp32, tp22, tp12}
 	new_ts = addMatchingTimeseries(tps1, tps2)
 	assert.Len(new_ts, 7)
-	assert.Equal(new_ts[0], tp52)
-	assert.Equal(new_ts[1], tp42)
-	assert.Equal(new_ts[2], tp41)
+	assert.Equal(new_ts[0].Timestamp, tp52.Timestamp)
+	assert.Equal(new_ts[0].Value, tp52.Value+tp41.Value)
+
+	assert.Equal(new_ts[1].Timestamp, tp42.Timestamp)
+	assert.Equal(new_ts[1].Value, tp42.Value+tp41.Value)
+
+	assert.Equal(new_ts[2].Timestamp, tp41.Timestamp)
+	assert.Equal(new_ts[2].Value, tp41.Value+tp32.Value)
+
 	assert.Equal(new_ts[3].Timestamp, tp31.Timestamp)
-	assert.Equal(new_ts[3].Value, uint64(21))
-	assert.Equal(new_ts[4], tp22)
-	assert.Equal(new_ts[5], tp21)
+	assert.Equal(new_ts[3].Value, tp31.Value+tp32.Value)
+
+	assert.Equal(new_ts[4].Timestamp, tp22.Timestamp)
+	assert.Equal(new_ts[4].Value, tp22.Value+tp21.Value)
+
+	assert.Equal(new_ts[5].Timestamp, tp21.Timestamp)
+	assert.Equal(new_ts[5].Value, tp21.Value+tp12.Value)
+
 	assert.Equal(new_ts[6].Timestamp, tp11.Timestamp)
-	assert.Equal(new_ts[6].Value, uint64(8))
+	assert.Equal(new_ts[6].Value, tp11.Value+tp12.Value)
 }
 
 // TestAddMatchingTimeseriesEmpty tests the alternate flows of addMatchingTimeseries.

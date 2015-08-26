@@ -401,7 +401,7 @@ func (a *Api) containerPaths(request *restful.Request, response *restful.Respons
 }
 
 // makeExternalEntityList converts the result of model's getX methods to the external type.
-func makeExternalEntityList(list []model.EntityListEntry) []types.ExternalEntityListEntry {
+func makeExternalEntityList(list []model_api.EntityListEntry) []types.ExternalEntityListEntry {
 	res := make([]types.ExternalEntityListEntry, 0)
 	for _, item := range list {
 		newItem := types.ExternalEntityListEntry{
@@ -762,7 +762,7 @@ func parseRequestParam(param string, request *restful.Request, response *restful
 }
 
 // exportStatBundle renders a model.StatBundle and a time.Duration into StatsResponse.
-func exportStatBundle(stats map[string]model.StatBundle, uptime time.Duration) types.StatsResponse {
+func exportStatBundle(stats map[string]model_api.StatBundle, uptime time.Duration) types.StatsResponse {
 	resMap := make(map[string]types.ExternalStatBundle)
 	for key, val := range stats {
 		resMap[key] = types.ExternalStatBundle{
@@ -777,8 +777,8 @@ func exportStatBundle(stats map[string]model.StatBundle, uptime time.Duration) t
 	}
 }
 
-// exportStats converts an internal model.Stats type to the external Stats type.
-func exportStat(stat model.Stats) types.Stats {
+// exportStats converts an internal model_api.Stats type to the external Stats type.
+func exportStat(stat model_api.Stats) types.Stats {
 	return types.Stats{
 		// exportStats converts an internal model_api.Stats type to the external Stats type.
 		Average:    stat.Average,
