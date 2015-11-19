@@ -1,4 +1,4 @@
-Runnig Heapster standalone on a host with cAdvisor
+Running Heapster standalone on a host with cAdvisor
 ================================
 
 - [Introduction](#introduction)
@@ -82,7 +82,7 @@ The `hostsFile` parameter defines a list of hosts to poll for metrics and must b
 ### Start heapster
 Now you can run a heapster, here is an example:
 
-	./heapster-master --source="cadvisor:external?cadvisorPort=8080" --use_model=true --model_resolution=10s --cache_duration=1m --stats_resolution=1s"
+	./heapster-master --source="cadvisor:external?cadvisorPort=8080" --use_model=true --model_resolution=10s --cache_duration=1m --stats_resolution=1s
 
 The `hostsFile` use the default one `/var/run/heapster/hosts`.Then the heapster is running on the default port 8082,like this:
 
